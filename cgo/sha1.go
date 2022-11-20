@@ -7,53 +7,22 @@ package cgo
 import "C"
 
 import (
-	"crypto/sha1"
-	"crypto/sha256"
-	"errors"
 	"unsafe"
 )
 
-var ErrSHA1CollisionDetected = errors.New("sha1 collision attack detected")
+const (
+	Size      = 20
+	BlockSize = 64
+)
 
 func New() *digest {
 	d := new(digest)
 	d.Reset()
-	d.WithPanic()
 	return d
-}
-
-func (d *digest) WithReducedRoundCollisionDetection(enabled bool) *digest {
-	if enabled {
-		C.SHA1DCSetDetectReducedRoundCollision(&d.ctx, 1)
-	} else {
-		C.SHA1DCSetDetectReducedRoundCollision(&d.ctx, 0)
-	}
-	return d
-}
-
-func (d *digest) WithPanic() {
-	d.outcome = func(_ []byte) []byte {
-		panic(ErrSHA1CollisionDetected.Error())
-	}
-}
-
-func (d *digest) WithSHA256Truncated() {
-	d.outcome = func(in []byte) []byte {
-		h := sha256.Sum256(in)
-		return h[:sha1.Size]
-	}
-}
-
-func (d *digest) WithCallBack(cb func([]byte) []byte) {
-	d.outcome = cb
 }
 
 type digest struct {
 	ctx C.SHA1_CTX
-
-	// outcome is executed when a collision is found
-	// and the errorless Sum() func was called.
-	outcome func([]byte) []byte
 }
 
 func (d *digest) Write(p []byte) (nn int, err error) {
@@ -64,46 +33,39 @@ func (d *digest) Write(p []byte) (nn int, err error) {
 	return len(p), nil
 }
 
-func (d *digest) sum() ([]byte, error) {
-	b := make([]byte, sha1.Size)
+func (d *digest) sum() ([]byte, bool) {
+	b := make([]byte, Size)
 	ptr := C.CBytes(b)
 	defer C.free(unsafe.Pointer(ptr))
 
 	c := C.SHA1DCFinal((*C.uchar)(ptr), &d.ctx)
-	if c != 0 {
-		return nil, ErrSHA1CollisionDetected
-	}
+	collision := c != 0
 
-	return C.GoBytes(ptr, sha1.Size), nil
+	return C.GoBytes(ptr, Size), collision
 }
 
 func (d *digest) Sum(in []byte) []byte {
-	h, err := d.sum()
-	if err != nil {
-		h = d.outcome(in)
-	}
+	d0 := *d // use a copy of d to avoid race conditions.
+	h, _ := d0.sum()
 	return append(in, h...)
 }
 
-func (d *digest) SumOrError(in []byte) ([]byte, error) {
-	h, err := d.sum()
-	if err != nil {
-		return nil, err
-	}
-	return append(in, h...), nil
+func (d *digest) CollisionResistantSum(in []byte) ([]byte, bool) {
+	d0 := *d // use a copy of d to avoid race conditions.
+	h, c := d0.sum()
+	return append(in, h...), c
 }
 
 func (d *digest) Reset() {
 	C.SHA1DCInit(&d.ctx)
 }
 
-func (d *digest) Size() int { return sha1.Size }
+func (d *digest) Size() int { return Size }
 
-func (d *digest) BlockSize() int { return sha1.BlockSize }
+func (d *digest) BlockSize() int { return BlockSize }
 
-func Sum(data []byte) ([]byte, error) {
+func Sum(data []byte) ([]byte, bool) {
 	d := New()
-	d.Reset()
 	d.Write(data)
 
 	return d.sum()

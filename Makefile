@@ -6,8 +6,8 @@ test:
 
 .PHONY: bench
 bench:
-	go test -benchmem -run=^$$ -bench ^Benchmark_ github.com/pjbgf/go-hardened-sha1/cgo
+	go test -benchmem -run=^$$ -bench ^Benchmark ./...
 
 .PHONY: fuzz
 fuzz:
-	go test -fuzz=. -fuzztime=$(FUZZ_TIME) ./cgo/
+	go test -fuzz=. -fuzztime=$(FUZZ_TIME) ./test/
