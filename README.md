@@ -25,7 +25,7 @@ func test(){
 - https://github.com/cr-marcstevens/sha1collisiondetection
 - https://csrc.nist.gov/Projects/Cryptographic-Algorithm-Validation-Program/Secure-Hashing#shavs
 
-## Use of the Original Implemetation
+## Use of the Original Implementation
 - https://github.com/git/git/commit/28dc98e343ca4eb370a29ceec4c19beac9b5c01e
 - https://github.com/libgit2/libgit2/pull/4136
 
