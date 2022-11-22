@@ -31,5 +31,6 @@ jobs:
         run: make bench
       - name: Run fuzzers
         env:
-          FUZZ_TIME: 5m
+          # Run for 2 minutes to ensure it is working. Long runs happens nightly.
+          FUZZ_TIME: 2m
         run: make fuzz
