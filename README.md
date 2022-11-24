@@ -4,7 +4,7 @@ A Go implementation of SHA1 with counter-cryptanalysis, which detects
 collision attacks. 
 
 The `cgo/lib` code is a carbon copy of the [original code], based on
-the award winning white paper by Marc Stevens.
+the award winning [white paper] by Marc Stevens.
 
 The Go implementation is largely based off Go's generic sha1.
 At present no SIMD optimisations have been implemented.
