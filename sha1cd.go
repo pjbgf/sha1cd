@@ -57,7 +57,7 @@ type digest struct {
 }
 
 const (
-	magic         = "shadc\x01"
+	magic         = "shacd\x01"
 	marshaledSize = len(magic) + 5*4 + chunk + 8
 )
 
