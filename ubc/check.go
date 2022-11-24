@@ -3,6 +3,8 @@
 
 package ubc
 
+import "fmt"
+
 type DvInfo struct {
 	// DvType, DvK and DvB define the DV: I(K,B) or II(K,B) (see the paper).
 	// https://marc-stevens.nl/research/papers/C13-S.pdf
@@ -25,9 +27,12 @@ type DvInfo struct {
 // for all listed DVs. It returns a dvmask where each bit belonging to a DV is set if all
 // unavoidable bitconditions for that DV have been met.
 // Thus, one needs to do the recompression check for each DV that has its bit set.
-func CalculateDvMask(W []uint32) uint32 {
-	mask := uint32(0xFFFFFFFF)
+func CalculateDvMask(W []uint32) (uint32, error) {
+	if len(W) < 80 {
+		return 0, fmt.Errorf("invalid input: len(W) must be 80, was %d", len(W))
+	}
 
+	mask := uint32(0xFFFFFFFF)
 	mask &= (((((W[44] ^ W[45]) >> 29) & 1) - 1) | ^(DV_I_48_0_bit | DV_I_51_0_bit | DV_I_52_0_bit | DV_II_45_0_bit | DV_II_46_0_bit | DV_II_50_0_bit | DV_II_51_0_bit))
 	mask &= (((((W[49] ^ W[50]) >> 29) & 1) - 1) | ^(DV_I_46_0_bit | DV_II_45_0_bit | DV_II_50_0_bit | DV_II_51_0_bit | DV_II_55_0_bit | DV_II_56_0_bit))
 	mask &= (((((W[48] ^ W[49]) >> 29) & 1) - 1) | ^(DV_I_45_0_bit | DV_I_52_0_bit | DV_II_49_0_bit | DV_II_50_0_bit | DV_II_54_0_bit | DV_II_55_0_bit))
@@ -353,7 +358,7 @@ func CalculateDvMask(W []uint32) uint32 {
 		}
 	}
 
-	return mask
+	return mask, nil
 }
 
 func not(x uint32) uint32 {

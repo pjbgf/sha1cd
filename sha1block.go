@@ -123,7 +123,7 @@ func blockGeneric(dig *digest, p []byte) {
 		h3 += d
 		h4 += e
 
-		if mask := ubc.CalculateDvMask(m1); mask != 0 {
+		if mask, err := ubc.CalculateDvMask(m1); err == nil && mask != 0 {
 			dvs := ubc.SHA1_dvs()
 			for i := 0; dvs[i].DvType != 0; i++ {
 				if (mask & ((uint32)(1) << uint32(dvs[i].MaskB))) != 0 {
