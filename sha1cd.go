@@ -129,6 +129,13 @@ func (d *digest) Reset() {
 	d.ihvtmp[3] = 0x0
 	d.ihvtmp[4] = 0xA7ECE0
 
+	for i := range d.m2 {
+		d.m2[i] = 0x0
+	}
+
+	for k := range d.cs {
+		delete(d.cs, k)
+	}
 }
 
 // New returns a new hash.Hash computing the SHA1 checksum. The Hash also
