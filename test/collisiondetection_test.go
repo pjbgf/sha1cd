@@ -1,10 +1,9 @@
 package test
 
 import (
-	"bytes"
 	"encoding/hex"
 	"fmt"
-	"os"
+	"io/ioutil"
 	"strings"
 	"testing"
 
@@ -66,7 +65,7 @@ func TestCollisionDetection(t *testing.T) {
 	for _, tt := range tests {
 		for i, d := range tt.hashers {
 			t.Run(fmt.Sprintf("%s[%d]", tt.name, i), func(t *testing.T) {
-				data, err := os.ReadFile(tt.inputFile)
+				data, err := ioutil.ReadFile(tt.inputFile)
 				if err != nil {
 					t.Fatalf("unexpected error: %v", err)
 				}
@@ -84,29 +83,6 @@ func TestCollisionDetection(t *testing.T) {
 			})
 		}
 	}
-}
-
-func FuzzDeviationDetection(f *testing.F) {
-	f.Add([]byte{})
-
-	g := sha1cd.New().(sha1cd.CollisionResistantHash)
-	c := cgo.New().(sha1cd.CollisionResistantHash)
-
-	f.Fuzz(func(t *testing.T, in []byte) {
-		g.Reset()
-		c.Reset()
-
-		g.Write(in)
-		c.Write(in)
-
-		gv, gc := g.CollisionResistantSum(nil)
-		cv, cc := c.CollisionResistantSum(nil)
-
-		if bytes.Compare(gv, cv) != 0 || gc != cc {
-			t.Fatalf("input: %q\n go result: %q %v\ncgo result: %q %v",
-				hex.EncodeToString(in), hex.EncodeToString(gv), gc, hex.EncodeToString(cv), cc)
-		}
-	})
 }
 
 func TestCalculateDvMask_Shattered1(t *testing.T) {
