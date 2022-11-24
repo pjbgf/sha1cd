@@ -88,8 +88,8 @@ func TestGolden(t *testing.T) {
 }
 
 func TestGoldenMarshal(t *testing.T) {
-	h := New()
-	h2 := New()
+	h := New().(*digest)
+	h2 := New().(*digest)
 	for _, g := range golden {
 		h.Reset()
 		h2.Reset()
@@ -174,7 +174,7 @@ func safeSum(h hash.Hash) (sum []byte, err error) {
 func TestLargeHashes(t *testing.T) {
 	for i, test := range largeUnmarshalTests {
 
-		h := New()
+		h := New().(*digest)
 		if err := h.UnmarshalBinary([]byte(test.state)); err != nil {
 			t.Errorf("test %d could not unmarshal: %v", i, err)
 			continue

@@ -16,8 +16,8 @@ import (
 
 func TestCollisionDetection(t *testing.T) {
 	defaultHashers := []sha1cd.CollisionResistantHash{
-		cgo.New(),
-		sha1cd.New(),
+		cgo.New().(sha1cd.CollisionResistantHash),
+		sha1cd.New().(sha1cd.CollisionResistantHash),
 	}
 
 	tests := []struct {
@@ -89,8 +89,8 @@ func TestCollisionDetection(t *testing.T) {
 func FuzzDeviationDetection(f *testing.F) {
 	f.Add([]byte{})
 
-	g := sha1cd.New()
-	c := cgo.New()
+	g := sha1cd.New().(sha1cd.CollisionResistantHash)
+	c := cgo.New().(sha1cd.CollisionResistantHash)
 
 	f.Fuzz(func(t *testing.T, in []byte) {
 		g.Reset()

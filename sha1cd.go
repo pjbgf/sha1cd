@@ -12,9 +12,15 @@ package sha1cd
 // Original: https://github.com/golang/go/blob/master/src/crypto/sha1/sha1.go
 
 import (
+	"crypto"
 	"encoding/binary"
 	"errors"
+	"hash"
 )
+
+func init() {
+	crypto.RegisterHash(crypto.SHA1, New)
+}
 
 // The size of a SHA-1 checksum in bytes.
 const Size = 20
@@ -128,7 +134,7 @@ func (d *digest) Reset() {
 // New returns a new hash.Hash computing the SHA1 checksum. The Hash also
 // implements encoding.BinaryMarshaler and encoding.BinaryUnmarshaler to
 // marshal and unmarshal the internal state of the hash.
-func New() *digest {
+func New() hash.Hash {
 	d := new(digest)
 
 	d.cs = map[int][5]uint32{}
@@ -280,7 +286,7 @@ func (d *digest) constSum() ([Size]byte, error) {
 
 // Sum returns the SHA-1 checksum of the data.
 func Sum(data []byte) ([Size]byte, bool) {
-	d := New()
+	d := New().(*digest)
 	d.Write(data)
 	return d.checkSum(), d.col
 }

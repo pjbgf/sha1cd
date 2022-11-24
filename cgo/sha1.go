@@ -7,6 +7,8 @@ package cgo
 import "C"
 
 import (
+	"crypto"
+	"hash"
 	"unsafe"
 )
 
@@ -15,7 +17,11 @@ const (
 	BlockSize = 64
 )
 
-func New() *digest {
+func init() {
+	crypto.RegisterHash(crypto.SHA1, New)
+}
+
+func New() hash.Hash {
 	d := new(digest)
 	d.Reset()
 	return d
@@ -65,7 +71,7 @@ func (d *digest) Size() int { return Size }
 func (d *digest) BlockSize() int { return BlockSize }
 
 func Sum(data []byte) ([]byte, bool) {
-	d := New()
+	d := New().(*digest)
 	d.Write(data)
 
 	return d.sum()
