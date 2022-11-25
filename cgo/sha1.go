@@ -31,23 +31,14 @@ type digest struct {
 	ctx C.SHA1_CTX
 }
 
-func (d *digest) Write(p []byte) (nn int, err error) {
-	data := (*C.char)(C.CBytes(p))
-	C.SHA1DCUpdate(&d.ctx, data, (C.ulong)(len(p)))
-	C.free(unsafe.Pointer(data))
-
-	return len(p), nil
-}
-
 func (d *digest) sum() ([]byte, bool) {
 	b := make([]byte, Size)
-	ptr := C.CBytes(b)
-	defer C.free(unsafe.Pointer(ptr))
+	c := C.SHA1DCFinal((*C.uchar)(unsafe.Pointer(&b[0])), &d.ctx)
+	if c != 0 {
+		return b, true
+	}
 
-	c := C.SHA1DCFinal((*C.uchar)(ptr), &d.ctx)
-	collision := c != 0
-
-	return C.GoBytes(ptr, Size), collision
+	return b, false
 }
 
 func (d *digest) Sum(in []byte) []byte {
