@@ -57,7 +57,7 @@ func TestCollisionDetection(t *testing.T) {
 		{
 			name:      "Valid File",
 			inputFile: "../testdata/files/valid-file.txt",
-			wantHash:  "3a97ef20e25305c580a172c7590d0753e51e72be",
+			wantHash:  "2b915da50f163514d390c9d87a4f3e23eb663f8a",
 			hashers:   defaultHashers,
 		},
 	}

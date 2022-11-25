@@ -10,4 +10,4 @@ bench:
 
 .PHONY: fuzz
 fuzz:
-	go test -fuzz=. -fuzztime=$(FUZZ_TIME) ./test/
+	go test -tags gofuzz -fuzz=. -fuzztime=$(FUZZ_TIME) ./test/
