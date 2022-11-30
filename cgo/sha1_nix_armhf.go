@@ -1,5 +1,5 @@
-//go:build !windows && !arm
-// +build !windows,!arm
+//go:build !windows && arm
+// +build !windows,arm
 
 package cgo
 
@@ -16,7 +16,7 @@ func (d *digest) Write(p []byte) (nn int, err error) {
 	}
 
 	data := (*C.char)(unsafe.Pointer(&p[0]))
-	C.SHA1DCUpdate(&d.ctx, data, (C.ulong)(len(p)))
+	C.SHA1DCUpdate(&d.ctx, data, (C.uint)(len(p)))
 
 	return len(p), nil
 }
