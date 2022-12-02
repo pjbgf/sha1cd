@@ -24,5 +24,9 @@ build-arm64:
 	docker build -t sha1cd-arm64 -f Dockerfile.arm64 .
 	docker run --rm sha1cd-arm64
 
+# Build with cgo disabled.
+build-nocgo:
+	CGO_ENABLED=0 go build ./cgo
+
 # Run cross-compilation to assure supported architectures.
-cross-build: build-arm build-arm64
+cross-build: build-arm build-arm64 build-nocgo
