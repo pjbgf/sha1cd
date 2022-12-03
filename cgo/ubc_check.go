@@ -1,6 +1,6 @@
 package cgo
 
-// #include <../cgo/lib/ubc_check.h>
+// #include <ubc_check.h>
 // #include <stdlib.h>
 //
 // uint32_t check(const uint32_t W[80])

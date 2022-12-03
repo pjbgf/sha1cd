@@ -1,9 +1,7 @@
 package cgo
 
-// #include <lib/sha1.h>
-// #include <lib/sha1.c>
-// #include <lib/ubc_check.h>
-// #include <lib/ubc_check.c>
+// #include <sha1.h>
+// #include <ubc_check.h>
 import "C"
 
 import (

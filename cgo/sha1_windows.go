@@ -3,7 +3,7 @@
 
 package cgo
 
-// #include <lib/sha1.h>
+// #include <sha1.h>
 // #include <stdlib.h>
 // #include <stddef.h>
 import "C"
