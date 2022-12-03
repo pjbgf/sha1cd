@@ -10,7 +10,11 @@ import (
 	"crypto"
 	"hash"
 	"unsafe"
+	"embed"
 )
+
+//go:embed lib/*.h lib/*.c
+var _ embed.FS
 
 const (
 	Size      = 20
