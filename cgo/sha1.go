@@ -65,3 +65,14 @@ func Sum(data []byte) ([]byte, bool) {
 
 	return d.sum()
 }
+
+func (d *digest) Write(p []byte) (nn int, err error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
+
+	data := (*C.char)(unsafe.Pointer(&p[0]))
+	C.SHA1DCUpdate(&d.ctx, data, (C.size_t)(len(p)))
+
+	return len(p), nil
+}
