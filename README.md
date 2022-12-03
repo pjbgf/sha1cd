@@ -45,6 +45,14 @@ attempt is detected. Therefore, inputs that contains the unavoidable
 bit conditions will yield a different hash from `sha1cd`, when compared
 with results using `crypto/sha1`. Valid inputs will have matching the outputs.
 
+## Troubleshooting
+
+1. Errors building the cgo version dependency can be resolved by
+replacing it with the Pure Go's version:
+```
+replace github.com/pjbgf/sha1cd/cgo => github.com/pjbgf/sha1cd v0.2.3
+```
+
 ## References
 - https://shattered.io/
 - https://github.com/cr-marcstevens/sha1collisiondetection
