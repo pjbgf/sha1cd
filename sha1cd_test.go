@@ -202,8 +202,7 @@ func TestAllocations(t *testing.T) {
 		out = h.Sum(out[:0])
 	}))
 
-	//TODO: Optimise resetting state to enforce 0 allocs.
-	if n > 4 {
-		t.Errorf("allocs = %d, want < 5", n)
+	if n > 0 {
+		t.Errorf("allocs = %d, want < 1", n)
 	}
 }

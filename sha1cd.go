@@ -47,7 +47,7 @@ type digest struct {
 	// col defines whether a collision has been found.
 	col bool
 	// cs stores the compression state for each of the SHA1's 80 steps.
-	cs map[int][5]uint32
+	cs [80][5]uint32
 	// m2 is a secondary message created XORing with ubc's DM prior to the SHA recompression step.
 	m2 [msize]uint32
 	// ihv2 is an Intermediary Hash Value created during the SHA recompression step.
@@ -155,8 +155,10 @@ func (d *digest) Reset() {
 		d.m2[i] = 0x0
 	}
 
-	for k := range d.cs {
-		delete(d.cs, k)
+	for i := range d.cs {
+		for j := range d.cs[i] {
+			d.cs[i][j] = 0x0
+		}
 	}
 }
 
@@ -165,9 +167,6 @@ func (d *digest) Reset() {
 // marshal and unmarshal the internal state of the hash.
 func New() hash.Hash {
 	d := new(digest)
-
-	d.cs = map[int][5]uint32{}
-	d.m2 = [msize]uint32{}
 
 	d.Reset()
 	return d
