@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io/ioutil"
-	"strings"
 	"testing"
 
 	"github.com/pjbgf/sha1cd"
@@ -88,62 +87,11 @@ func TestCollisionDetection(t *testing.T) {
 func TestCalculateDvMask_Shattered1(t *testing.T) {
 	for i := range testdata.Shattered1M1s {
 		t.Run(fmt.Sprintf("m1[%d]", i), func(t *testing.T) {
-			got, gotErr := ubc.CalculateDvMask(testdata.Shattered1M1s[i])
-			want, wantErr := cgo.CalculateDvMask(testdata.Shattered1M1s[i])
+			got := ubc.CalculateDvMask(testdata.Shattered1M1s[i])
+			want := cgo.CalculateDvMask(testdata.Shattered1M1s[i])
 
-			if want != got || gotErr != wantErr {
-				t.Fatalf("dvmask: %d %v\nwant %d %v", got, gotErr, want, wantErr)
-			}
-		})
-	}
-}
-
-func TestCalculateDvMask(t *testing.T) {
-	tests := []struct {
-		name    string
-		input   []uint32
-		want    uint32
-		wantErr string
-	}{
-		{
-			name:    "empty",
-			input:   nil,
-			wantErr: "invalid input: len(W) must be 80, was 0",
-		},
-		{
-			name:    "[79]uint32{}",
-			input:   make([]uint32, 79),
-			wantErr: "invalid input: len(W) must be 80, was 79",
-		},
-		{
-			name:  "[80]uint32{}",
-			input: make([]uint32, 80),
-		},
-	}
-
-	impls := []func(W []uint32) (uint32, error){
-		cgo.CalculateDvMask,
-		ubc.CalculateDvMask,
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			for _, impl := range impls {
-				got, err := impl(tt.input)
-				if tt.wantErr == "" && err != nil {
-					t.Errorf("unexpected error: %v", err)
-				}
-				if tt.wantErr != "" {
-					if err == nil {
-						t.Errorf("expected error: %q, got nil", tt.wantErr)
-					} else if !strings.Contains(err.Error(), tt.wantErr) {
-						t.Errorf("got: %q, want: %q", err.Error(), tt.wantErr)
-					}
-				}
-
-				if got != tt.want {
-					t.Errorf(" got: %d\n want: %v", got, tt.want)
-				}
+			if want != got {
+				t.Fatalf("dvmask: %d\nwant %d", got, want)
 			}
 		})
 	}

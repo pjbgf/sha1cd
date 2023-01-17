@@ -33,8 +33,7 @@ func blockGeneric(dig *digest, p []byte) {
 
 	h0, h1, h2, h3, h4 := dig.h[0], dig.h[1], dig.h[2], dig.h[3], dig.h[4]
 	for len(p) >= chunk {
-		m1 := make([]uint32, msize)
-		bcol := false
+		m1 := [msize]uint32{}
 
 		// Can interlace the computation of w with the
 		// rounds below if needed for speed.
@@ -123,7 +122,8 @@ func blockGeneric(dig *digest, p []byte) {
 		h3 += d
 		h4 += e
 
-		if mask, err := ubc.CalculateDvMask(m1); err == nil && mask != 0 {
+		bcol := false
+		if mask := ubc.CalculateDvMask(m1); mask != 0 {
 			dvs := ubc.SHA1_dvs()
 			for i := 0; dvs[i].DvType != 0; i++ {
 				if (mask & ((uint32)(1) << uint32(dvs[i].MaskB))) != 0 {
