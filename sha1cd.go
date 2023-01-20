@@ -47,7 +47,7 @@ type digest struct {
 	// col defines whether a collision has been found.
 	col bool
 	// cs stores the compression state for each of the SHA1's 80 steps.
-	cs map[int][5]uint32
+	cs [80][5]uint32
 	// m2 is a secondary message created XORing with ubc's DM prior to the SHA recompression step.
 	m2 [msize]uint32
 	// ihv2 is an Intermediary Hash Value created during the SHA recompression step.
@@ -155,8 +155,10 @@ func (d *digest) Reset() {
 		d.m2[i] = 0x0
 	}
 
-	for k := range d.cs {
-		delete(d.cs, k)
+	for i := range d.cs {
+		for j := range d.cs[i] {
+			d.cs[i][j] = 0x0
+		}
 	}
 }
 
@@ -165,9 +167,6 @@ func (d *digest) Reset() {
 // marshal and unmarshal the internal state of the hash.
 func New() hash.Hash {
 	d := new(digest)
-
-	d.cs = map[int][5]uint32{}
-	d.m2 = [msize]uint32{}
 
 	d.Reset()
 	return d
@@ -240,77 +239,6 @@ func (d *digest) checkSum() [Size]byte {
 	binary.BigEndian.PutUint32(digest[16:], d.h[4])
 
 	return digest
-}
-
-// ConstantTimeSum computes the same result of Sum() but in constant time
-func (d *digest) ConstantTimeSum(in []byte) ([]byte, error) {
-	d0 := *d
-	hash, err := d0.constSum()
-	if err != nil {
-		return nil, err
-	}
-	return append(in, hash[:]...), nil
-}
-
-func (d *digest) constSum() ([Size]byte, error) {
-	var length [8]byte
-	l := d.len << 3
-	for i := uint(0); i < 8; i++ {
-		length[i] = byte(l >> (56 - 8*i))
-	}
-
-	nx := byte(d.nx)
-	t := nx - 56                 // if nx < 56 then the MSB of t is one
-	mask1b := byte(int8(t) >> 7) // mask1b is 0xFF iff one block is enough
-
-	separator := byte(0x80) // gets reset to 0x00 once used
-	for i := byte(0); i < chunk; i++ {
-		mask := byte(int8(i-nx) >> 7) // 0x00 after the end of data
-
-		// if we reached the end of the data, replace with 0x80 or 0x00
-		d.x[i] = (^mask & separator) | (mask & d.x[i])
-
-		// zero the separator once used
-		separator &= mask
-
-		if i >= 56 {
-			// we might have to write the length here if all fit in one block
-			d.x[i] |= mask1b & length[i-56]
-		}
-	}
-
-	// compress, and only keep the digest if all fit in one block
-	block(d, d.x[:])
-
-	var digest [Size]byte
-	for i, s := range d.h {
-		digest[i*4] = mask1b & byte(s>>24)
-		digest[i*4+1] = mask1b & byte(s>>16)
-		digest[i*4+2] = mask1b & byte(s>>8)
-		digest[i*4+3] = mask1b & byte(s)
-	}
-
-	for i := byte(0); i < chunk; i++ {
-		// second block, it's always past the end of data, might start with 0x80
-		if i < 56 {
-			d.x[i] = separator
-			separator = 0
-		} else {
-			d.x[i] = length[i-56]
-		}
-	}
-
-	// compress, and only keep the digest if we actually needed the second block
-	block(d, d.x[:])
-
-	for i, s := range d.h {
-		digest[i*4] |= ^mask1b & byte(s>>24)
-		digest[i*4+1] |= ^mask1b & byte(s>>16)
-		digest[i*4+2] |= ^mask1b & byte(s>>8)
-		digest[i*4+3] |= ^mask1b & byte(s)
-	}
-
-	return digest, nil
 }
 
 // Sum returns the SHA-1 checksum of the data.
