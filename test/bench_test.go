@@ -3,16 +3,16 @@ package test
 import (
 	"crypto/sha1"
 	"hash"
+	"os"
 	"testing"
 
 	"github.com/pjbgf/sha1cd"
 	"github.com/pjbgf/sha1cd/cgo"
-	"github.com/pjbgf/sha1cd/testdata"
 	"github.com/pjbgf/sha1cd/ubc"
 )
 
 func BenchmarkCalculateDvMask(b *testing.B) {
-	data := testdata.Shattered1M1s[0]
+	data := shattered1M1s[0]
 
 	b.Run("go", func(b *testing.B) {
 		b.ReportAllocs()
@@ -41,6 +41,18 @@ func benchmarkSize(b *testing.B, n string, d hash.Hash, size int) {
 	})
 }
 
+func benchmarkContent(b *testing.B, n string, d hash.Hash, data []byte) {
+	b.Run(n, func(b *testing.B) {
+		b.ReportAllocs()
+		b.SetBytes(int64(len(data)))
+		for i := 0; i < b.N; i++ {
+			d.Reset()
+			d.Write(data)
+			d.Sum(data[:0])
+		}
+	})
+}
+
 func BenchmarkHash8Bytes(b *testing.B) {
 	benchmarkSize(b, "sha1", sha1.New(), 8)
 	benchmarkSize(b, "sha1cd", sha1cd.New(), 8)
@@ -63,4 +75,13 @@ func BenchmarkHash8K(b *testing.B) {
 	benchmarkSize(b, "sha1", sha1.New(), 8192)
 	benchmarkSize(b, "sha1cd", sha1cd.New(), 8192)
 	benchmarkSize(b, "sha1cd_cgo", cgo.New(), 8192)
+}
+
+func BenchmarkHashWithCollision(b *testing.B) {
+	shambles, err := os.ReadFile("testdata/files/sha-mbles-1.bin")
+	if err != nil {
+		b.Fatal(err)
+	}
+	benchmarkContent(b, "sha1cd", sha1cd.New(), shambles)
+	benchmarkContent(b, "sha1cd_cgo", cgo.New(), shambles)
 }
