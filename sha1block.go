@@ -3,113 +3,110 @@
 // license that can be found in the LICENSE file.
 
 // Originally from: https://github.com/go/blob/master/src/crypto/sha1/sha1block.go
+// It has been modified to support collision detection.
 
 package sha1cd
 
 import (
+	"fmt"
 	"math/bits"
 
+	shared "github.com/pjbgf/sha1cd/internal"
 	"github.com/pjbgf/sha1cd/ubc"
 )
 
-const (
-	msize = 80
-
-	_K0 = 0x5A827999
-	_K1 = 0x6ED9EBA1
-	_K2 = 0x8F1BBCDC
-	_K3 = 0xCA62C1D6
-)
-
-// TODO: Implement SIMD support.
-func block(dig *digest, p []byte) {
-	blockGeneric(dig, p)
-}
-
 // blockGeneric is a portable, pure Go version of the SHA-1 block step.
 // It's used by sha1block_generic.go and tests.
-func blockGeneric(dig *digest, p []byte) {
+func block(dig *digest, p []byte) {
 	var w [16]uint32
 
+	// cs stores the pre-step compression state for only the steps required for the
+	// collision detection, which are 0, 58 and 65.
+	// Refer to ubc/const.go for more details.
+	cs := [3][shared.WordBuffers]uint32{}
+
 	h0, h1, h2, h3, h4 := dig.h[0], dig.h[1], dig.h[2], dig.h[3], dig.h[4]
-	for len(p) >= chunk {
-		m1 := [msize]uint32{}
+	for len(p) >= shared.Chunk {
+		m1 := [shared.Rounds]uint32{}
+		hi := 1
 
-		// Can interlace the computation of w with the
-		// rounds below if needed for speed.
-		for i := 0; i < 16; i++ {
-			j := i * 4
-			w[i] = uint32(p[j])<<24 | uint32(p[j+1])<<16 | uint32(p[j+2])<<8 | uint32(p[j+3])
-		}
-
+		// Collision attacks are thwarted by hashing a detected near-collision block 3 times.
+		// Think of it as extending SHA-1 from 80-steps to 240-steps for such blocks:
+		// 		The best collision attacks against SHA-1 have complexity about 2^60,
+		// 		thus for 240-steps an immediate lower-bound for the best cryptanalytic attacks would be 2^180.
+		// 		An attacker would be better off using a generic birthday search of complexity 2^80.
+	rehash:
 		a, b, c, d, e := h0, h1, h2, h3, h4
 
 		// Each of the four 20-iteration rounds
 		// differs only in the computation of f and
-		// the choice of K (_K0, _K1, etc).
+		// the choice of K (K0, K1, etc).
 		i := 0
+
+		// Store pre-step compression state for the collision detection.
+		cs[0] = [shared.WordBuffers]uint32{a, b, c, d, e}
+
 		for ; i < 16; i++ {
-			// Store pre-step compression state for the collision detection.
-			dig.cs[i] = [5]uint32{a, b, c, d, e}
+			// load step
+			j := i * 4
+			w[i] = uint32(p[j])<<24 | uint32(p[j+1])<<16 | uint32(p[j+2])<<8 | uint32(p[j+3])
 
 			f := b&c | (^b)&d
-			t := bits.RotateLeft32(a, 5) + f + e + w[i&0xf] + _K0
+			t := bits.RotateLeft32(a, 5) + f + e + w[i&0xf] + shared.K0
 			a, b, c, d, e = t, a, bits.RotateLeft32(b, 30), c, d
 
 			// Store compression state for the collision detection.
 			m1[i] = w[i&0xf]
 		}
 		for ; i < 20; i++ {
-			// Store pre-step compression state for the collision detection.
-			dig.cs[i] = [5]uint32{a, b, c, d, e}
-
 			tmp := w[(i-3)&0xf] ^ w[(i-8)&0xf] ^ w[(i-14)&0xf] ^ w[(i)&0xf]
 			w[i&0xf] = tmp<<1 | tmp>>(32-1)
 
 			f := b&c | (^b)&d
-			t := bits.RotateLeft32(a, 5) + f + e + w[i&0xf] + _K0
+			t := bits.RotateLeft32(a, 5) + f + e + w[i&0xf] + shared.K0
 			a, b, c, d, e = t, a, bits.RotateLeft32(b, 30), c, d
 
 			// Store compression state for the collision detection.
 			m1[i] = w[i&0xf]
 		}
 		for ; i < 40; i++ {
-			// Store pre-step compression state for the collision detection.
-			dig.cs[i] = [5]uint32{a, b, c, d, e}
-
 			tmp := w[(i-3)&0xf] ^ w[(i-8)&0xf] ^ w[(i-14)&0xf] ^ w[(i)&0xf]
 			w[i&0xf] = tmp<<1 | tmp>>(32-1)
 
 			f := b ^ c ^ d
-			t := bits.RotateLeft32(a, 5) + f + e + w[i&0xf] + _K1
+			t := bits.RotateLeft32(a, 5) + f + e + w[i&0xf] + shared.K1
 			a, b, c, d, e = t, a, bits.RotateLeft32(b, 30), c, d
 
 			// Store compression state for the collision detection.
 			m1[i] = w[i&0xf]
 		}
 		for ; i < 60; i++ {
-			// Store pre-step compression state for the collision detection.
-			dig.cs[i] = [5]uint32{a, b, c, d, e}
+			if i == 58 {
+				// Store pre-step compression state for the collision detection.
+				cs[1] = [shared.WordBuffers]uint32{a, b, c, d, e}
+			}
 
 			tmp := w[(i-3)&0xf] ^ w[(i-8)&0xf] ^ w[(i-14)&0xf] ^ w[(i)&0xf]
 			w[i&0xf] = tmp<<1 | tmp>>(32-1)
 
 			f := ((b | c) & d) | (b & c)
-			t := bits.RotateLeft32(a, 5) + f + e + w[i&0xf] + _K2
+			t := bits.RotateLeft32(a, 5) + f + e + w[i&0xf] + shared.K2
 			a, b, c, d, e = t, a, bits.RotateLeft32(b, 30), c, d
 
 			// Store compression state for the collision detection.
 			m1[i] = w[i&0xf]
 		}
 		for ; i < 80; i++ {
-			// Store pre-step compression state for the collision detection.
-			dig.cs[i] = [5]uint32{a, b, c, d, e}
+			if i == 65 {
+				// Store pre-step compression state for the collision detection.
+				cs[2] = [shared.WordBuffers]uint32{a, b, c, d, e}
+			}
 
 			tmp := w[(i-3)&0xf] ^ w[(i-8)&0xf] ^ w[(i-14)&0xf] ^ w[(i)&0xf]
 			w[i&0xf] = tmp<<1 | tmp>>(32-1)
 
 			f := b ^ c ^ d
-			t := bits.RotateLeft32(a, 5) + f + e + w[i&0xf] + _K3
+			t := bits.RotateLeft32(a, 5) + f + e + w[i&0xf] + shared.K3
 			a, b, c, d, e = t, a, bits.RotateLeft32(b, 30), c, d
 
 			// Store compression state for the collision detection.
@@ -122,113 +119,104 @@ func blockGeneric(dig *digest, p []byte) {
 		h3 += d
 		h4 += e
 
-		bcol := false
-		if mask := ubc.CalculateDvMask(m1); mask != 0 {
-			dvs := ubc.SHA1_dvs()
-			for i := 0; dvs[i].DvType != 0; i++ {
-				if (mask & ((uint32)(1) << uint32(dvs[i].MaskB))) != 0 {
-					for j := 0; j < msize; j++ {
-						dig.m2[j] = m1[j] ^ dvs[i].Dm[j]
-					}
+		if hi == 2 {
+			hi++
+			goto rehash
+		}
 
-					recompressionStep(dvs[i].TestT, &dig.ihv2, &dig.ihvtmp, dig.m2, dig.cs[dvs[i].TestT])
+		if hi == 1 {
+			if mask := ubc.CalculateDvMask(m1); mask != 0 {
+				dvs := ubc.SHA1_dvs()
 
-					if 0 == ((dig.ihvtmp[0] ^ h0) | (dig.ihvtmp[1] ^ h1) |
-						(dig.ihvtmp[2] ^ h2) | (dig.ihvtmp[3] ^ h3) | (dig.ihvtmp[4] ^ h4)) {
-						dig.col = true
-						bcol = true
+				for i := 0; dvs[i].DvType != 0; i++ {
+					if (mask & ((uint32)(1) << uint32(dvs[i].MaskB))) != 0 {
+						var state [5]uint32
+						switch dvs[i].TestT {
+						case 58:
+							state = cs[1]
+						case 65:
+							state = cs[2]
+						case 0:
+							state = cs[0]
+						default:
+							panic(fmt.Sprintf("dvs data is trying to use a testT that isn't available: %d", dvs[i].TestT))
+						}
+
+						col := hasCollided(
+							dvs[i].TestT, // testT is the step number
+							// m2 is a secondary message created XORing with
+							// ubc's DM prior to the SHA recompression step.
+							m1, dvs[i].Dm,
+							state,
+							[5]uint32{h0, h1, h2, h3, h4})
+
+						if col {
+							dig.col = true
+
+							hi++
+							goto rehash
+						}
 					}
 				}
 			}
 		}
 
-		// Collision attacks are thwarted by hashing a detected near-collision block 3 times.
-		// Think of it as extending SHA-1 from 80-steps to 240-steps for such blocks:
-		// 		The best collision attacks against SHA-1 have complexity about 2^60,
-		// 		thus for 240-steps an immediate lower-bound for the best cryptanalytic attacks would be 2^180.
-		// 		An attacker would be better off using a generic birthday search of complexity 2^80.
-		if bcol {
-			for j := 0; j < 2; j++ {
-				a, b, c, d, e := h0, h1, h2, h3, h4
-
-				i := 0
-				for ; i < 20; i++ {
-					f := b&c | (^b)&d
-					t := bits.RotateLeft32(a, 5) + f + e + m1[i] + _K0
-					a, b, c, d, e = t, a, bits.RotateLeft32(b, 30), c, d
-				}
-				for ; i < 40; i++ {
-					f := b ^ c ^ d
-					t := bits.RotateLeft32(a, 5) + f + e + m1[i] + _K1
-					a, b, c, d, e = t, a, bits.RotateLeft32(b, 30), c, d
-				}
-				for ; i < 60; i++ {
-					f := ((b | c) & d) | (b & c)
-					t := bits.RotateLeft32(a, 5) + f + e + m1[i] + _K2
-					a, b, c, d, e = t, a, bits.RotateLeft32(b, 30), c, d
-				}
-				for ; i < 80; i++ {
-					f := b ^ c ^ d
-					t := bits.RotateLeft32(a, 5) + f + e + m1[i] + _K3
-					a, b, c, d, e = t, a, bits.RotateLeft32(b, 30), c, d
-				}
-
-				h0 += a
-				h1 += b
-				h2 += c
-				h3 += d
-				h4 += e
-			}
-		}
-
-		p = p[chunk:]
+		p = p[shared.Chunk:]
 	}
 
 	dig.h[0], dig.h[1], dig.h[2], dig.h[3], dig.h[4] = h0, h1, h2, h3, h4
 }
 
-func recompressionStep(step int, ihvin, ihvout *[5]uint32, m2 [msize]uint32, state [5]uint32) {
+func hasCollided(step uint32, m1, dm [shared.Rounds]uint32,
+	state [shared.WordBuffers]uint32, h [shared.WordBuffers]uint32) bool {
+	// Intermediary Hash Value.
+	ihv := [shared.WordBuffers]uint32{}
+
 	a, b, c, d, e := state[0], state[1], state[2], state[3], state[4]
 
 	// Walk backwards from current step to undo previous compression.
-	for i := 79; i >= 60; i-- {
+	// The existing collision detection does not have dvs higher than 65,
+	// start value of i accordingly.
+	for i := uint32(64); i >= 60; i-- {
 		a, b, c, d, e = b, c, d, e, a
 		if step > i {
 			b = bits.RotateLeft32(b, -30)
 			f := b ^ c ^ d
-			e -= bits.RotateLeft32(a, 5) + f + _K3 + m2[i]
+			e -= bits.RotateLeft32(a, 5) + f + shared.K3 + (m1[i] ^ dm[i])
 		}
 	}
-	for i := 59; i >= 40; i-- {
+	for i := uint32(59); i >= 40; i-- {
 		a, b, c, d, e = b, c, d, e, a
 		if step > i {
 			b = bits.RotateLeft32(b, -30)
 			f := ((b | c) & d) | (b & c)
-			e -= bits.RotateLeft32(a, 5) + f + _K2 + m2[i]
+			e -= bits.RotateLeft32(a, 5) + f + shared.K2 + (m1[i] ^ dm[i])
 		}
 	}
-	for i := 39; i >= 20; i-- {
+	for i := uint32(39); i >= 20; i-- {
 		a, b, c, d, e = b, c, d, e, a
 		if step > i {
 			b = bits.RotateLeft32(b, -30)
 			f := b ^ c ^ d
-			e -= bits.RotateLeft32(a, 5) + f + _K1 + m2[i]
+			e -= bits.RotateLeft32(a, 5) + f + shared.K1 + (m1[i] ^ dm[i])
 		}
 	}
-	for i := 19; i >= 0; i-- {
+	for i := uint32(20); i > 0; i-- {
+		j := i - 1
 		a, b, c, d, e = b, c, d, e, a
-		if step > i {
-			b = bits.RotateLeft32(b, -30)
+		if step > j {
+			b = bits.RotateLeft32(b, -30) // undo the rotate left
 			f := b&c | (^b)&d
-			e -= bits.RotateLeft32(a, 5) + f + _K0 + m2[i]
+			// subtract from e
+			e -= bits.RotateLeft32(a, 5) + f + shared.K0 + (m1[j] ^ dm[j])
 		}
 	}
 
-	ihvin[0] = a
-	ihvin[1] = b
-	ihvin[2] = c
-	ihvin[3] = d
-	ihvin[4] = e
+	ihv[0] = a
+	ihv[1] = b
+	ihv[2] = c
+	ihv[3] = d
+	ihv[4] = e
 	a = state[0]
 	b = state[1]
 	c = state[2]
@@ -236,38 +224,34 @@ func recompressionStep(step int, ihvin, ihvout *[5]uint32, m2 [msize]uint32, sta
 	e = state[4]
 
 	// Recompress blocks based on the current step.
-	for i := 0; i < 20; i++ {
-		if step <= i {
-			f := b&c | (^b)&d
-			t := bits.RotateLeft32(a, 5) + f + e + _K0 + m2[i]
-			a, b, c, d, e = t, a, bits.RotateLeft32(b, 30), c, d
-		}
-	}
-	for i := 20; i < 40; i++ {
-		if step <= i {
-			f := b ^ c ^ d
-			t := bits.RotateLeft32(a, 5) + f + e + _K1 + m2[i]
-			a, b, c, d, e = t, a, bits.RotateLeft32(b, 30), c, d
-		}
-	}
-	for i := 40; i < 60; i++ {
+	// The existing collision detection does not have dvs below 58, so they have been removed
+	// from the source code. If new dvs are added which target rounds below 40, that logic
+	// will need to be readded here.
+	for i := uint32(40); i < 60; i++ {
 		if step <= i {
 			f := ((b | c) & d) | (b & c)
-			t := bits.RotateLeft32(a, 5) + f + e + _K2 + m2[i]
+			t := bits.RotateLeft32(a, 5) + f + e + shared.K2 + (m1[i] ^ dm[i])
 			a, b, c, d, e = t, a, bits.RotateLeft32(b, 30), c, d
 		}
 	}
-	for i := 60; i < 80; i++ {
+	for i := uint32(60); i < 80; i++ {
 		if step <= i {
 			f := b ^ c ^ d
-			t := bits.RotateLeft32(a, 5) + f + e + _K3 + m2[i]
+			t := bits.RotateLeft32(a, 5) + f + e + shared.K3 + (m1[i] ^ dm[i])
 			a, b, c, d, e = t, a, bits.RotateLeft32(b, 30), c, d
 		}
 	}
 
-	ihvout[0] = ihvin[0] + a
-	ihvout[1] = ihvin[1] + b
-	ihvout[2] = ihvin[2] + c
-	ihvout[3] = ihvin[3] + d
-	ihvout[4] = ihvin[4] + e
+	ihv[0] += a
+	ihv[1] += b
+	ihv[2] += c
+	ihv[3] += d
+	ihv[4] += e
+
+	if ((ihv[0] ^ h[0]) | (ihv[1] ^ h[1]) |
+		(ihv[2] ^ h[2]) | (ihv[3] ^ h[3]) | (ihv[4] ^ h[4])) == 0 {
+		return true
+	}
+
+	return false
 }
