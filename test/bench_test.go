@@ -55,25 +55,29 @@ func benchmarkContent(b *testing.B, n string, d hash.Hash, data []byte) {
 
 func BenchmarkHash8Bytes(b *testing.B) {
 	benchmarkSize(b, "sha1", sha1.New(), 8)
-	benchmarkSize(b, "sha1cd", sha1cd.New(), 8)
+	benchmarkSize(b, "sha1cd_native", sha1cd.New(), 8)
+	benchmarkSize(b, "sha1cd_generic", sha1cd.NewGeneric(), 8)
 	benchmarkSize(b, "sha1cd_cgo", cgo.New(), 8)
 }
 
 func BenchmarkHash320Bytes(b *testing.B) {
 	benchmarkSize(b, "sha1", sha1.New(), 320)
-	benchmarkSize(b, "sha1cd", sha1cd.New(), 320)
+	benchmarkSize(b, "sha1cd_native", sha1cd.New(), 320)
+	benchmarkSize(b, "sha1cd_generic", sha1cd.NewGeneric(), 320)
 	benchmarkSize(b, "sha1cd_cgo", cgo.New(), 320)
 }
 
 func BenchmarkHash1K(b *testing.B) {
 	benchmarkSize(b, "sha1", sha1.New(), 1024)
-	benchmarkSize(b, "sha1cd", sha1cd.New(), 1024)
+	benchmarkSize(b, "sha1cd_native", sha1cd.New(), 1024)
+	benchmarkSize(b, "sha1cd_generic", sha1cd.NewGeneric(), 1024)
 	benchmarkSize(b, "sha1cd_cgo", cgo.New(), 1024)
 }
 
 func BenchmarkHash8K(b *testing.B) {
 	benchmarkSize(b, "sha1", sha1.New(), 8192)
-	benchmarkSize(b, "sha1cd", sha1cd.New(), 8192)
+	benchmarkSize(b, "sha1cd_native", sha1cd.New(), 8192)
+	benchmarkSize(b, "sha1cd_generic", sha1cd.NewGeneric(), 8192)
 	benchmarkSize(b, "sha1cd_cgo", cgo.New(), 8192)
 }
 
@@ -82,6 +86,7 @@ func BenchmarkHashWithCollision(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	benchmarkContent(b, "sha1cd", sha1cd.New(), shambles)
+	benchmarkContent(b, "sha1cd_native", sha1cd.New(), shambles)
+	benchmarkContent(b, "sha1cd_generic", sha1cd.NewGeneric(), shambles)
 	benchmarkContent(b, "sha1cd_cgo", cgo.New(), shambles)
 }

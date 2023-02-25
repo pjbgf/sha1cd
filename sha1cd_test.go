@@ -193,9 +193,18 @@ func TestLargeHashes(t *testing.T) {
 }
 
 func TestAllocations(t *testing.T) {
+	t.Run("generic", func(t *testing.T) {
+		testAllocations(NewGeneric(), t)
+	})
+
+	t.Run("native", func(t *testing.T) {
+		testAllocations(New(), t)
+	})
+}
+
+func testAllocations(h hash.Hash, t *testing.T) {
 	in := []byte("hello, world!")
 	out := make([]byte, 0, Size)
-	h := New()
 	n := int(testing.AllocsPerRun(10, func() {
 		h.Reset()
 		h.Write(in)

@@ -38,7 +38,8 @@ type digest struct {
 	len uint64
 
 	// col defines whether a collision has been found.
-	col bool
+	col       bool
+	blockFunc func(dig *digest, p []byte)
 }
 
 func (d *digest) MarshalBinary() ([]byte, error) {
@@ -127,6 +128,17 @@ func (d *digest) Reset() {
 func New() hash.Hash {
 	d := new(digest)
 
+	d.blockFunc = block
+	d.Reset()
+	return d
+}
+
+// NewGeneric is equivalent to New but uses the Go generic implementation,
+// avoiding any processor-specific optimizations.
+func NewGeneric() hash.Hash {
+	d := new(digest)
+
+	d.blockFunc = blockGeneric
 	d.Reset()
 	return d
 }
@@ -146,14 +158,14 @@ func (d *digest) Write(p []byte) (nn int, err error) {
 		n := copy(d.x[d.nx:], p)
 		d.nx += n
 		if d.nx == shared.Chunk {
-			block(d, d.x[:])
+			d.blockFunc(d, d.x[:])
 			d.nx = 0
 		}
 		p = p[n:]
 	}
 	if len(p) >= shared.Chunk {
 		n := len(p) &^ (shared.Chunk - 1)
-		block(d, p[:n])
+		d.blockFunc(d, p[:n])
 		p = p[n:]
 	}
 	if len(p) > 0 {
