@@ -17,13 +17,13 @@ import (
 
 // blockGeneric is a portable, pure Go version of the SHA-1 block step.
 // It's used by sha1block_generic.go and tests.
-func block(dig *digest, p []byte) {
+func blockGeneric(dig *digest, p []byte) {
 	var w [16]uint32
 
 	// cs stores the pre-step compression state for only the steps required for the
 	// collision detection, which are 0, 58 and 65.
 	// Refer to ubc/const.go for more details.
-	cs := [3][shared.WordBuffers]uint32{}
+	cs := [shared.PreStepState][shared.WordBuffers]uint32{}
 
 	h0, h1, h2, h3, h4 := dig.h[0], dig.h[1], dig.h[2], dig.h[3], dig.h[4]
 	for len(p) >= shared.Chunk {
@@ -125,39 +125,11 @@ func block(dig *digest, p []byte) {
 		}
 
 		if hi == 1 {
-			if mask := ubc.CalculateDvMask(m1); mask != 0 {
-				dvs := ubc.SHA1_dvs()
-
-				for i := 0; dvs[i].DvType != 0; i++ {
-					if (mask & ((uint32)(1) << uint32(dvs[i].MaskB))) != 0 {
-						var state [5]uint32
-						switch dvs[i].TestT {
-						case 58:
-							state = cs[1]
-						case 65:
-							state = cs[2]
-						case 0:
-							state = cs[0]
-						default:
-							panic(fmt.Sprintf("dvs data is trying to use a testT that isn't available: %d", dvs[i].TestT))
-						}
-
-						col := hasCollided(
-							dvs[i].TestT, // testT is the step number
-							// m2 is a secondary message created XORing with
-							// ubc's DM prior to the SHA recompression step.
-							m1, dvs[i].Dm,
-							state,
-							[5]uint32{h0, h1, h2, h3, h4})
-
-						if col {
-							dig.col = true
-
-							hi++
-							goto rehash
-						}
-					}
-				}
+			col := checkCollision(m1, cs, [shared.WordBuffers]uint32{h0, h1, h2, h3, h4})
+			if col {
+				dig.col = true
+				hi++
+				goto rehash
 			}
 		}
 
@@ -165,6 +137,45 @@ func block(dig *digest, p []byte) {
 	}
 
 	dig.h[0], dig.h[1], dig.h[2], dig.h[3], dig.h[4] = h0, h1, h2, h3, h4
+}
+
+func checkCollision(
+	m1 [shared.Rounds]uint32,
+	cs [shared.PreStepState][shared.WordBuffers]uint32,
+	state [shared.WordBuffers]uint32) bool {
+
+	if mask := ubc.CalculateDvMask(m1); mask != 0 {
+		dvs := ubc.SHA1_dvs()
+
+		for i := 0; dvs[i].DvType != 0; i++ {
+			if (mask & ((uint32)(1) << uint32(dvs[i].MaskB))) != 0 {
+				var csState [shared.WordBuffers]uint32
+				switch dvs[i].TestT {
+				case 58:
+					csState = cs[1]
+				case 65:
+					csState = cs[2]
+				case 0:
+					csState = cs[0]
+				default:
+					panic(fmt.Sprintf("dvs data is trying to use a testT that isn't available: %d", dvs[i].TestT))
+				}
+
+				col := hasCollided(
+					dvs[i].TestT, // testT is the step number
+					// m2 is a secondary message created XORing with
+					// ubc's DM prior to the SHA recompression step.
+					m1, dvs[i].Dm,
+					csState,
+					state)
+
+				if col {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 func hasCollided(step uint32, m1, dm [shared.Rounds]uint32,
@@ -182,7 +193,7 @@ func hasCollided(step uint32, m1, dm [shared.Rounds]uint32,
 		if step > i {
 			b = bits.RotateLeft32(b, -30)
 			f := b ^ c ^ d
-			e -= bits.RotateLeft32(a, 5) + f + shared.K3 + (m1[i] ^ dm[i])
+			e -= bits.RotateLeft32(a, 5) + f + shared.K3 + (m1[i] ^ dm[i]) // m2 = m1 ^ dm.
 		}
 	}
 	for i := uint32(59); i >= 40; i-- {

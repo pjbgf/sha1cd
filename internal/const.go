@@ -33,6 +33,10 @@ const (
 	// SHA1 processes the input data in chunks. Each chunk contains 64 bytes.
 	Chunk = 64
 
+	// The number of pre-step compression state to store.
+	// Currently there are 3 pre-step compression states required: 0, 58, 65.
+	PreStepState = 3
+
 	Magic         = "shacd\x01"
 	MarshaledSize = len(Magic) + 5*4 + Chunk + 8
 )
