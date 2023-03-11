@@ -14,9 +14,13 @@ import (
 func BenchmarkCalculateDvMask(b *testing.B) {
 	data := shattered1M1s[0]
 
-	b.Run("go", func(b *testing.B) {
+	b.Run("generic", func(b *testing.B) {
 		b.ReportAllocs()
-		ubc.CalculateDvMask(data)
+		ubc.CalculateDvMaskGeneric(data)
+	})
+	b.Run("native", func(b *testing.B) {
+		b.ReportAllocs()
+		ubc.CalculateDvMaskAMD64(data)
 	})
 	b.Run("cgo", func(b *testing.B) {
 		b.ReportAllocs()

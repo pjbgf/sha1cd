@@ -85,11 +85,16 @@ func TestCollisionDetection(t *testing.T) {
 func TestCalculateDvMask_Shattered1(t *testing.T) {
 	for i := range shattered1M1s {
 		t.Run(fmt.Sprintf("m1[%d]", i), func(t *testing.T) {
-			got := ubc.CalculateDvMask(shattered1M1s[i])
 			want := cgo.CalculateDvMask(shattered1M1s[i])
 
+			got := ubc.CalculateDvMaskGeneric(shattered1M1s[i])
 			if want != got {
-				t.Fatalf("dvmask: %d\nwant %d", got, want)
+				t.Fatalf("[go] dvmask: %d\nwant %d", got, want)
+			}
+
+			got = ubc.CalculateDvMaskAMD64(shattered1M1s[i])
+			if want != got {
+				t.Fatalf("[amd64] dvmask: %d\nwant %d", got, want)
 			}
 		})
 	}
