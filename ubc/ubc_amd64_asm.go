@@ -12,17 +12,6 @@ import (
 
 //go:generate go run ubc_amd64_asm.go -out ubc_amd64.s
 
-const (
-	DvTypeOffset = 0
-	DvKOffset    = 4
-	DvBOffset    = 8
-	TestTOffset  = 12
-	MaskIOffset  = 16
-	MaskBOffset  = 20
-
-	DvsSizeBytes = 6 + 80
-)
-
 func main() {
 	Constraint(buildtags.Not("noasm").ToConstraint())
 	Constraint(buildtags.Term("gc").ToConstraint())
