@@ -1,6 +1,6 @@
 module github.com/pjbgf/sha1cd
 
-go 1.19
+go 1.20
 
 require github.com/mmcloughlin/avo v0.5.0
 
