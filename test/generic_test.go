@@ -1,9 +1,13 @@
+//go:build noasm || !gc || !amd64
+
 package test
 
 import (
+	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
+	"hash"
+	"os"
 	"testing"
 
 	"github.com/pjbgf/sha1cd"
@@ -11,13 +15,87 @@ import (
 	"github.com/pjbgf/sha1cd/ubc"
 )
 
+func BenchmarkCalculateDvMask(b *testing.B) {
+	data := shattered1M1s[0]
+
+	b.Run("generic", func(b *testing.B) {
+		b.ReportAllocs()
+		ubc.CalculateDvMaskGeneric(data)
+	})
+	b.Run("cgo", func(b *testing.B) {
+		b.ReportAllocs()
+		cgo.CalculateDvMask(data)
+	})
+}
+
+// The hash benchmarks aligns with upstream Go implementation,
+// for easier comparison across both.
+var buf = make([]byte, 8192)
+
+func benchmarkSize(b *testing.B, n string, d hash.Hash, size int) {
+	sum := make([]byte, d.Size())
+	b.Run(n, func(b *testing.B) {
+		b.ReportAllocs()
+		b.SetBytes(int64(size))
+		for i := 0; i < b.N; i++ {
+			d.Reset()
+			d.Write(buf[:size])
+			d.Sum(sum[:0])
+		}
+	})
+}
+
+func benchmarkContent(b *testing.B, n string, d hash.Hash, data []byte) {
+	b.Run(n, func(b *testing.B) {
+		b.ReportAllocs()
+		b.SetBytes(int64(len(data)))
+		for i := 0; i < b.N; i++ {
+			d.Reset()
+			d.Write(data)
+			d.Sum(data[:0])
+		}
+	})
+}
+
+func BenchmarkHash8Bytes(b *testing.B) {
+	benchmarkSize(b, "sha1", sha1.New(), 8)
+	benchmarkSize(b, "sha1cd_generic", sha1cd.NewGeneric(), 8)
+	benchmarkSize(b, "sha1cd_cgo", cgo.New(), 8)
+}
+
+func BenchmarkHash320Bytes(b *testing.B) {
+	benchmarkSize(b, "sha1", sha1.New(), 320)
+	benchmarkSize(b, "sha1cd_generic", sha1cd.NewGeneric(), 320)
+	benchmarkSize(b, "sha1cd_cgo", cgo.New(), 320)
+}
+
+func BenchmarkHash1K(b *testing.B) {
+	benchmarkSize(b, "sha1", sha1.New(), 1024)
+	benchmarkSize(b, "sha1cd_generic", sha1cd.NewGeneric(), 1024)
+	benchmarkSize(b, "sha1cd_cgo", cgo.New(), 1024)
+}
+
+func BenchmarkHash8K(b *testing.B) {
+	benchmarkSize(b, "sha1", sha1.New(), 8192)
+	benchmarkSize(b, "sha1cd_generic", sha1cd.NewGeneric(), 8192)
+	benchmarkSize(b, "sha1cd_cgo", cgo.New(), 8192)
+}
+
+func BenchmarkHashWithCollision(b *testing.B) {
+	shambles, err := os.ReadFile("testdata/files/sha-mbles-1.bin")
+	if err != nil {
+		b.Fatal(err)
+	}
+	benchmarkContent(b, "sha1cd_generic", sha1cd.NewGeneric(), shambles)
+	benchmarkContent(b, "sha1cd_cgo", cgo.New(), shambles)
+}
+
 func TestCollisionDetection(t *testing.T) {
 	hashers := []struct {
 		name   string
 		hasher sha1cd.CollisionResistantHash
 	}{
 		{name: "sha1cd_cgo", hasher: cgo.New().(sha1cd.CollisionResistantHash)},
-		{name: "sha1cd_native", hasher: sha1cd.New().(sha1cd.CollisionResistantHash)},
 		{name: "sha1cd_generic", hasher: sha1cd.NewGeneric().(sha1cd.CollisionResistantHash)},
 	}
 
@@ -61,7 +139,7 @@ func TestCollisionDetection(t *testing.T) {
 	for _, tt := range tests {
 		for _, hasher := range hashers {
 			t.Run(fmt.Sprintf("%s[%s]", tt.name, hasher.name), func(t *testing.T) {
-				data, err := ioutil.ReadFile(tt.inputFile)
+				data, err := os.ReadFile(tt.inputFile)
 				if err != nil {
 					t.Fatalf("unexpected error: %v", err)
 				}
@@ -90,11 +168,6 @@ func TestCalculateDvMask_Shattered1(t *testing.T) {
 			got := ubc.CalculateDvMaskGeneric(shattered1M1s[i])
 			if want != got {
 				t.Fatalf("[go] dvmask: %d\nwant %d", got, want)
-			}
-
-			got = ubc.CalculateDvMaskAMD64(shattered1M1s[i])
-			if want != got {
-				t.Fatalf("[amd64] dvmask: %d\nwant %d", got, want)
 			}
 		})
 	}
