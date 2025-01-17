@@ -1,6 +1,6 @@
 module github.com/pjbgf/sha1cd/asm
 
-go 1.23.4
+go 1.21
 
 require github.com/mmcloughlin/avo v0.6.0
 
