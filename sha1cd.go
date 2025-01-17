@@ -17,9 +17,10 @@ import (
 	"errors"
 	"hash"
 
-	_ "github.com/mmcloughlin/avo/build"
 	shared "github.com/pjbgf/sha1cd/internal"
 )
+
+//go:generate go run -modfile=asm/go.mod asm/asm.go -out sha1cdblock_amd64.s -pkg $PKG
 
 func init() {
 	crypto.RegisterHash(crypto.SHA1, New)
