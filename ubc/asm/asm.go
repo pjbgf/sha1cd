@@ -1,6 +1,3 @@
-//go:build ignore
-// +build ignore
-
 package main
 
 import (
@@ -9,8 +6,6 @@ import (
 	. "github.com/mmcloughlin/avo/operand"
 	"github.com/pjbgf/sha1cd/ubc"
 )
-
-//go:generate go run ubc_amd64_asm.go -out ubc_amd64.s
 
 const (
 	DvTypeOffset = 0

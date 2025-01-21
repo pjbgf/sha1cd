@@ -1,6 +1,3 @@
-//go:build ignore
-// +build ignore
-
 package main
 
 import (
@@ -8,10 +5,18 @@ import (
 	"github.com/mmcloughlin/avo/buildtags"
 	. "github.com/mmcloughlin/avo/operand"
 	. "github.com/mmcloughlin/avo/reg"
-	shared "github.com/pjbgf/sha1cd/internal"
 )
 
-//go:generate go run sha1cdblock_amd64_asm.go -out sha1cdblock_amd64.s
+const (
+	// Constants for the SHA-1 hash function.
+	RoundConst0 = 0x5A827999
+	RoundConst1 = 0x6ED9EBA1
+	RoundConst2 = 0x8F1BBCDC
+	RoundConst3 = 0xCA62C1D6
+
+	// SHA1 processes the input data in chunks. Each chunk contains 64 bytes.
+	Chunk = 64
+)
 
 func main() {
 	Constraint(buildtags.Not("noasm").ToConstraint())
@@ -61,7 +66,7 @@ func main() {
 	}
 
 	// Store message values on the stack.
-	w := AllocLocal(shared.Chunk)
+	w := AllocLocal(Chunk)
 	W := func(r int) Mem { return w.Offset((r % 16) * 4) }
 
 	Comment("len(p) >= chunk")
@@ -161,7 +166,7 @@ func main() {
 		Commentf("ROUND1(%d)", index)
 		LOAD(index)
 		FUNC1(a, b, c, d, e)
-		MIX(a, b, c, d, e, shared.K0)
+		MIX(a, b, c, d, e, RoundConst0)
 		LOADM1(index)
 	}
 
@@ -169,7 +174,7 @@ func main() {
 		Commentf("ROUND1x(%d)", index)
 		SHUFFLE(index)
 		FUNC1(a, b, c, d, e)
-		MIX(a, b, c, d, e, shared.K0)
+		MIX(a, b, c, d, e, RoundConst0)
 		LOADM1(index)
 	}
 
@@ -177,7 +182,7 @@ func main() {
 		Commentf("ROUND2(%d)", index)
 		SHUFFLE(index)
 		FUNC2(a, b, c, d, e)
-		MIX(a, b, c, d, e, shared.K1)
+		MIX(a, b, c, d, e, RoundConst1)
 		LOADM1(index)
 	}
 
@@ -185,7 +190,7 @@ func main() {
 		Commentf("ROUND3(%d)", index)
 		SHUFFLE(index)
 		FUNC3(a, b, c, d, e)
-		MIX(a, b, c, d, e, shared.K2)
+		MIX(a, b, c, d, e, RoundConst2)
 		LOADM1(index)
 	}
 
@@ -193,7 +198,7 @@ func main() {
 		Commentf("ROUND4(%d)", index)
 		SHUFFLE(index)
 		FUNC4(a, b, c, d, e)
-		MIX(a, b, c, d, e, shared.K3)
+		MIX(a, b, c, d, e, RoundConst3)
 		LOADM1(index)
 	}
 
@@ -297,7 +302,7 @@ func main() {
 		ADDL(r, hash[i])
 	}
 
-	ADDQ(I8(shared.Chunk), p_base)
+	ADDQ(I8(Chunk), p_base)
 	CMPQ(p_base, di64)
 	JB(LabelRef("loop"))
 
