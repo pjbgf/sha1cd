@@ -12,7 +12,6 @@ package sha1cd
 // Original: https://github.com/golang/go/blob/master/src/crypto/sha1/sha1.go
 
 import (
-	"crypto"
 	"encoding/binary"
 	"errors"
 	"hash"
@@ -21,10 +20,6 @@ import (
 )
 
 //go:generate go run -C asm . -out ../sha1cdblock_amd64.s -pkg $GOPACKAGE
-
-func init() {
-	crypto.RegisterHash(crypto.SHA1, New)
-}
 
 // The size of a SHA-1 checksum in bytes.
 const Size = shared.Size
