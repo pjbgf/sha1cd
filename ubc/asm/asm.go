@@ -22,6 +22,7 @@ func main() {
 	Constraint(buildtags.Not("noasm").ToConstraint())
 	Constraint(buildtags.Term("gc").ToConstraint())
 	Constraint(buildtags.Term("amd64").ToConstraint())
+	Constraint(buildtags.Not("arm64").ToConstraint())
 
 	TEXT("CalculateDvMaskAMD64", NOSPLIT, "func(W [80]uint32) uint32")
 

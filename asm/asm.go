@@ -22,6 +22,7 @@ func main() {
 	Constraint(buildtags.Not("noasm").ToConstraint())
 	Constraint(buildtags.Term("gc").ToConstraint())
 	Constraint(buildtags.Term("amd64").ToConstraint())
+	Constraint(buildtags.Not("arm64").ToConstraint())
 
 	Package("github.com/pjbgf/sha1cd")
 
