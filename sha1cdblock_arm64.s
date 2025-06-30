@@ -42,9 +42,9 @@ loop:
 
 	// ROUND1(0)
 	// LOAD
-	MOVWU (R16), R20
-	REVW  R20, R20
-	MOVW  R20, (RSP)
+	MOVWU   (R16), R20
+	REVW   R20, R20
+	MOVW    R20, (RSP)
 
 	// FUNC1
 	MOVW R13, R15
@@ -53,15 +53,13 @@ loop:
 	EORW R13, R15
 
 	// MIX
-	MOVW R10, R8
-	MOVW R8<<5, R8
-	MOVW R11<<30, R20
-	MOVW R11>>2, R21
-	ORR  R11, R20, R21
+	RORW $2, R11, R11
 	ADDW R15, R14
+	MOVW R10, R8
+	RORW $27, R8, R8
 	MOVW $1518500249, R19
-	ADDW R9, R14
 	ADDW R19, R14
+	ADDW R20, R14
 	ADDW R8, R14
 
 	// Load m1
@@ -82,18 +80,14 @@ loop:
 	EORW R12, R15
 
 	// MIX
-	MOVW R10>>2, R20           // R20 = R10 >> 2
-    MOVW R10<<30, R21          // R21 = R10 << 30
-    ORR  R10, R20, R21         // R10 = R20 | R21
-    ADDW R15, R13              // R13 = R13 + R15
-    MOVW R14, R8               // R8 = R14 (32-bit copy)
-    MOVW R8>>27, R20           // R20 = R8 >> 27
-    MOVW R8<<5,  R21           // R21 = R8 << 5
-    ORR  R8, R20, R21          // R8 = rotated version
-    MOVW $1518500249, R22      // Load constant
-    ADDW R9, R13               // R13 += R9
-    ADDW R22, R13              // R13 += 1518500249
-    ADDW R8, R13               
+	RORW $2, R10, R10
+	ADDW R15, R13
+	MOVW R14, R8
+	RORW $27, R8, R8
+	MOVW $1518500249, R19
+	ADDW R19, R13
+	ADDW R20, R13
+	ADDW R8, R13
 
 	// Load m1
 	MOVD m1_base+32(FP), R8
