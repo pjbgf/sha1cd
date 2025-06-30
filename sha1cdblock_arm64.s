@@ -42,9 +42,9 @@ loop:
 
 	// ROUND1(0)
 	// LOAD
-	MOVWU   (R16), R20
-	REVW   R20, R20
-	MOVW    R20, (RSP)
+	MOVWU (R16), R20
+	REVW  R20, R20
+	MOVW  R20, (RSP)
 
 	// FUNC1
 	MOVW R13, R15
@@ -56,6 +56,7 @@ loop:
 	RORW $2, R11, R11
 	ADDW R15, R14
 	MOVW R10, R8
+	// bits.RotateLeft32
 	RORW $27, R8, R8
 	MOVW $1518500249, R19
 	ADDW R19, R14
@@ -67,32 +68,32 @@ loop:
 	MOVW (RSP), R20
 	MOVW R20, (R8)
 
-	// ROUND1(1)
-	// LOAD
-	MOVWU   4(R17), R20
-	REVW   R20, R20
-	MOVW    R20, 4(RSP)
+	// // ROUND1(1)
+	// // LOAD
+	// MOVWU   4(R17), R20
+	// REVW   R20, R20
+	// MOVW    R20, 4(RSP)
 
-	// FUNC1
-	MOVW R12, R15
-	EORW R11, R15
-	ANDW R10, R15
-	EORW R12, R15
+	// // FUNC1
+	// MOVW R12, R15
+	// EORW R11, R15
+	// ANDW R10, R15
+	// EORW R12, R15
 
-	// MIX
-	RORW $2, R10, R10
-	ADDW R15, R13
-	MOVW R14, R8
-	RORW $27, R8, R8
-	MOVW $1518500249, R19
-	ADDW R19, R13
-	ADDW R20, R13
-	ADDW R8, R13
+	// // MIX
+	// RORW $2, R10, R10
+	// ADDW R15, R13
+	// MOVW R14, R8
+	// RORW $27, R8, R8
+	// MOVW $1518500249, R19
+	// ADDW R19, R13
+	// ADDW R20, R13
+	// ADDW R8, R13
 
-	// Load m1
-	MOVD m1_base+32(FP), R8
-	MOVW 4(RSP), R20
-	MOVW R20, 4(R8)
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 4(RSP), R20
+	// MOVW R20, 4(R8)
 
 	// // ROUND1(2)
 	// // LOAD
