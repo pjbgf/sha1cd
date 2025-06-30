@@ -8,23 +8,22 @@ TEXT ·blockARM64(SB), NOSPLIT, $64-80
     MOVD    p_base+8(FP), R16
     MOVD    p_len+16(FP), R10
 
-    // Round down length to multiple of 64 bytes
     LSR     $6, R10, R10               // R10 >>= 6
     LSL     $6, R10, R10               // R10 <<= 6
-    ADD     R16, R10, R11              // R11 = p_base + rounded_len
+    ADD     R16, R10, R21              // R21 = p_base + rounded_len
 
-    // Load h0-h4 into R0–R4
+    // Load h0-h4 into R0–R4.
     MOVW    (R8), R0                   // R0 = h0
     MOVW    4(R8), R1                  // R1 = h1
     MOVW    8(R8), R2                  // R2 = h2
     MOVW    12(R8), R3                 // R3 = h3
     MOVW    16(R8), R4                 // R4 = h4
 
-    // len(p) >= chunk
-    CMP     R16, R11
-    BEQ     end
-
 loop:
+    // len(p) >= chunk
+    CMP     R16, R21
+    BLT     end
+
 	// Initialize registers a, b, c, d, e.
 	MOVW R0, R10
 	MOVW R1, R11
@@ -32,15 +31,2594 @@ loop:
 	MOVW R3, R13
 	MOVW R4, R14
 
+	// ROUND1 (steps 0-15)
+	// Load cs
+	MOVD cs_base+56(FP), R8
+	MOVW R10, (R8)
+	MOVW R11, 4(R8)
+	MOVW R12, 8(R8)
+	MOVW R13, 12(R8)
+	MOVW R14, 16(R8)
+
+	// ROUND1(0)
+	// LOAD
+	MOVWU (R16), R20
+	REVW  R20, R20
+	MOVW  R20, (RSP)
+
+	// FUNC1
+	MOVW R13, R15
+	EORW R12, R15
+	ANDW R11, R15
+	EORW R13, R15
+
+	// MIX
+	MOVW R10, R8
+	MOVW R8<<5, R8
+	MOVW R11<<30, R20
+	MOVW R11>>2, R21
+	ORR  R11, R20, R21
+	ADDW R15, R14
+	MOVW $1518500249, R19
+	ADDW R9, R14
+	ADDW R19, R14
+	ADDW R8, R14
+
+	// Load m1
+	MOVD m1_base+32(FP), R8
+	MOVW (RSP), R20
+	MOVW R20, (R8)
+
+	// ROUND1(1)
+	// LOAD
+	MOVWU   4(R17), R20
+	REVW   R20, R20
+	MOVW    R20, 4(RSP)
+
+	// FUNC1
+	MOVW R12, R15
+	EORW R11, R15
+	ANDW R10, R15
+	EORW R12, R15
+
+	// MIX
+	MOVW R10>>2, R20           // R20 = R10 >> 2
+    MOVW R10<<30, R21          // R21 = R10 << 30
+    ORR  R10, R20, R21         // R10 = R20 | R21
+    ADDW R15, R13              // R13 = R13 + R15
+    MOVW R14, R8               // R8 = R14 (32-bit copy)
+    MOVW R8>>27, R20           // R20 = R8 >> 27
+    MOVW R8<<5,  R21           // R21 = R8 << 5
+    ORR  R8, R20, R21          // R8 = rotated version
+    MOVW $1518500249, R22      // Load constant
+    ADDW R9, R13               // R13 += R9
+    ADDW R22, R13              // R13 += 1518500249
+    ADDW R8, R13               
+
+	// Load m1
+	MOVD m1_base+32(FP), R8
+	MOVW 4(RSP), R20
+	MOVW R20, 4(R8)
+
+	// // ROUND1(2)
+	// // LOAD
+	// MOVWU   8(R17), R9
+	// REVW   R9, R9
+	// MOVW    R9, 8(RSP)
+
+	// // FUNC1
+	// MOVW R11, R15
+	// EORW R10, R15
+	// ANDW R14, R15
+	// EORW R11, R15
+
+	// // MIX
+	// RORW $2, R14
+	// ADDW R15, R12
+	// MOVW R13, R8
+	// RORW $27, R8
+	// MOVW $1518500249, R19
+	// ADDW R19, R12
+	// ADDW R9, R12
+	// ADDW R8, R12
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 8(RSP), R9
+	// MOVW R9, 8(R8)
+
+	// // ROUND1(3)
+	// // LOAD
+	// MOVWU   12(R17), R9
+	// REVW   R9, R9
+	// MOVW    R9, 12(RSP)
+
+	// // FUNC1
+	// MOVW R10, R15
+	// EORW R14, R15
+	// ANDW R13, R15
+	// EORW R10, R15
+
+	// // MIX
+	// RORW $2, R13
+	// ADDW R15, R11
+	// MOVW R12, R8
+	// RORW $27, R8
+	// MOVW $1518500249, R19
+	// ADDW R19, R11
+	// ADDW R9, R11
+	// ADDW R8, R11
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 12(RSP), R9
+	// MOVW R9, 12(R8)
+
+	// // ROUND1(4)
+	// // LOAD
+	// MOVWU   16(R17), R9
+	// REVW   R9, R9
+	// MOVW    R9, 16(RSP)
+
+	// // FUNC1
+	// MOVW R14, R15
+	// EORW R13, R15
+	// ANDW R12, R15
+	// EORW R14, R15
+
+	// // MIX
+	// RORW $2, R12
+	// ADDW R15, R10
+	// MOVW R11, R8
+	// RORW $27, R8
+	// MOVW $1518500249, R19
+	// ADDW R19, R10
+	// ADDW R9, R10
+	// ADDW R8, R10
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 16(RSP), R9
+	// MOVW R9, 16(R8)
+
+	// // ROUND1(5)
+	// // LOAD
+	// MOVWU   20(R17), R9
+	// REVW   R9, R9
+	// MOVW    R9, 20(RSP)
+
+	// // FUNC1
+	// MOVW R13, R15
+	// EORW R12, R15
+	// ANDW R11, R15
+	// EORW R13, R15
+
+	// // MIX
+	// RORW $2, R11
+	// ADDW R15, R14
+	// MOVW R10, R8
+	// RORW $27, R8
+	// MOVW $1518500249, R19
+	// ADDW R19, R14
+	// ADDW R9, R14
+	// ADDW R8, R14
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 20(RSP), R9
+	// MOVW R9, 20(R8)
+
+	// // ROUND1(6)
+	// // LOAD
+	// MOVWU   24(R17), R9
+	// REVW   R9, R9
+	// MOVW    R9, 24(RSP)
+
+	// // FUNC1
+	// MOVW R12, R15
+	// EORW R11, R15
+	// ANDW R10, R15
+	// EORW R12, R15
+
+	// // MIX
+	// RORW $2, R10
+	// ADDW R15, R13
+	// MOVW R14, R8
+	// RORW $27, R8
+	// MOVW $1518500249, R19
+	// ADDW R19, R13
+	// ADDW R9, R13
+	// ADDW R8, R13
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 24(RSP), R9
+	// MOVW R9, 24(R8)
+
+	// // ROUND1(7)
+	// // LOAD
+	// MOVWU   28(R17), R9
+	// REVW   R9, R9
+	// MOVW    R9, 28(RSP)
+
+	// // FUNC1
+	// MOVW R11, R15
+	// EORW R10, R15
+	// ANDW R14, R15
+	// EORW R11, R15
+
+	// // MIX
+	// RORW $2, R14
+	// ADDW R15, R12
+	// MOVW R13, R8
+	// RORW $27, R8
+	// MOVW $1518500249, R19
+	// ADDW R19, R12
+	// ADDW R9, R12
+	// ADDW R8, R12
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 28(RSP), R9
+	// MOVW R9, 28(R8)
+
+	// // ROUND1(8)
+	// // LOAD
+	// MOVWU   32(R17), R9
+	// REVW   R9, R9
+	// MOVW    R9, 32(RSP)
+
+	// // FUNC1
+	// MOVW R10, R15
+	// EORW R14, R15
+	// ANDW R13, R15
+	// EORW R10, R15
+
+	// // MIX
+	// RORW $2, R13
+	// ADDW R15, R11
+	// MOVW R12, R8
+	// RORW $27, R8
+	// MOVW $1518500249, R19
+	// ADDW R19, R11
+	// ADDW R9, R11
+	// ADDW R8, R11
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 32(RSP), R9
+	// MOVW R9, 32(R8)
+
+	// // ROUND1(9)
+	// // LOAD
+	// MOVWU   36(R17), R9
+	// REVW   R9, R9
+	// MOVW    R9, 36(RSP)
+
+	// // FUNC1
+	// MOVW R14, R15
+	// EORW R13, R15
+	// ANDW R12, R15
+	// EORW R14, R15
+
+	// // MIX
+	// RORW $2, R12
+	// ADDW R15, R10
+	// MOVW R11, R8
+	// RORW $27, R8
+	// MOVW $1518500249, R19
+	// ADDW R19, R10
+	// ADDW R9, R10
+	// ADDW R8, R10
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 36(RSP), R9
+	// MOVW R9, 36(R8)
+
+	// // ROUND1(10)
+	// // LOAD
+	// MOVWU   40(R17), R9
+	// REVW   R9, R9
+	// MOVW    R9, 40(RSP)
+
+	// // FUNC1
+	// MOVW R13, R15
+	// EORW R12, R15
+	// ANDW R11, R15
+	// EORW R13, R15
+
+	// // MIX
+	// RORW $2, R11
+	// ADDW R15, R14
+	// MOVW R10, R8
+	// RORW $27, R8
+	// MOVW $1518500249, R19
+	// ADDW R19, R14
+	// ADDW R9, R14
+	// ADDW R8, R14
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 40(RSP), R9
+	// MOVW R9, 40(R8)
+
+	// // ROUND1(11)
+	// // LOAD
+	// MOVWU   44(R17), R9
+	// REVW   R9, R9
+	// MOVW    R9, 44(RSP)
+
+	// // FUNC1
+	// MOVW R12, R15
+	// EORW R11, R15
+	// ANDW R10, R15
+	// EORW R12, R15
+
+	// // MIX
+	// RORW $2, R10
+	// ADDW R15, R13
+	// MOVW R14, R8
+	// RORW $27, R8
+	// MOVW $1518500249, R19
+	// ADDW R19, R13
+	// ADDW R9, R13
+	// ADDW R8, R13
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 44(RSP), R9
+	// MOVW R9, 44(R8)
+
+	// // ROUND1(12)
+	// // LOAD
+	// MOVWU   48(R17), R9
+	// REVW   R9, R9
+	// MOVW    R9, 48(RSP)
+
+	// // FUNC1
+	// MOVW R11, R15
+	// EORW R10, R15
+	// ANDW R14, R15
+	// EORW R11, R15
+
+	// // MIX
+	// RORW $2, R14
+	// ADDW R15, R12
+	// MOVW R13, R8
+	// RORW $27, R8
+	// MOVW $1518500249, R19
+	// ADDW R19, R12
+	// ADDW R9, R12
+	// ADDW R8, R12
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 48(RSP), R9
+	// MOVW R9, 48(R8)
+
+	// // ROUND1(13)
+	// // LOAD
+	// MOVWU   52(R17), R9
+	// REVW   R9, R9
+	// MOVW    R9, 52(RSP)
+
+	// // FUNC1
+	// MOVW R10, R15
+	// EORW R14, R15
+	// ANDW R13, R15
+	// EORW R10, R15
+
+	// // MIX
+	// RORW $2, R13
+	// ADDW R15, R11
+	// MOVW R12, R8
+	// RORW $27, R8
+	// MOVW $1518500249, R19
+	// ADDW R19, R11
+	// ADDW R9, R11
+	// ADDW R8, R11
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 52(RSP), R9
+	// MOVW R9, 52(R8)
+
+	// // ROUND1(14)
+	// // LOAD
+	// MOVWU   56(R17), R9
+	// REVW   R9, R9
+	// MOVW    R9, 56(RSP)
+
+	// // FUNC1
+	// MOVW R14, R15
+	// EORW R13, R15
+	// ANDW R12, R15
+	// EORW R14, R15
+
+	// // MIX
+	// RORW $2, R12
+	// ADDW R15, R10
+	// MOVW R11, R8
+	// RORW $27, R8
+	// MOVW $1518500249, R19
+	// ADDW R19, R10
+	// ADDW R9, R10
+	// ADDW R8, R10
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 56(RSP), R9
+	// MOVW R9, 56(R8)
+
+	// // ROUND1(15)
+	// // LOAD
+	// MOVWU   60(R17), R9
+	// REVW   R9, R9
+	// MOVW    R9, 60(RSP)
+
+	// // FUNC1
+	// MOVW R13, R15
+	// EORW R12, R15
+	// ANDW R11, R15
+	// EORW R13, R15
+
+	// // MIX
+	// RORW $2, R11
+	// ADDW R15, R14
+	// MOVW R10, R8
+	// RORW $27, R8
+	// MOVW $1518500249, R19
+	// ADDW R19, R14
+	// ADDW R9, R14
+	// ADDW R8, R14
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 60(RSP), R9
+	// MOVW R9, 60(R8)
+
+	// // ROUND1x (steps 16-19) - same as ROUND1 but with no data load.
+	// // ROUND1x(16)
+	// // SHUFFLE
+	// MOVW (RSP), R9
+	// MOVW 52(RSP), R20
+	// EORW R20, R9
+	// MOVW 32(RSP), R20
+	// EORW R20, R9
+	// MOVW 8(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, (RSP)
+
+	// // FUNC1
+	// MOVW R12, R15
+	// EORW R11, R15
+	// ANDW R10, R15
+	// EORW R12, R15
+
+	// // MIX
+	// RORW $2, R10
+	// ADDW R15, R13
+	// MOVW R14, R8
+	// RORW $27, R8
+	// MOVW $1518500249, R19
+	// ADDW R19, R13
+	// ADDW R9, R13
+	// ADDW R8, R13
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW (RSP), R9
+	// MOVW R9, 64(R8)
+
+	// // ROUND1x(17)
+	// // SHUFFLE
+	// MOVW 4(RSP), R9
+	// MOVW 56(RSP), R20
+	// EORW R20, R9
+	// MOVW 36(RSP), R20
+	// EORW R20, R9
+	// MOVW 12(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 4(RSP)
+
+	// // FUNC1
+	// MOVW R11, R15
+	// EORW R10, R15
+	// ANDW R14, R15
+	// EORW R11, R15
+
+	// // MIX
+	// RORW $2, R14
+	// ADDW R15, R12
+	// MOVW R13, R8
+	// RORW $27, R8
+	// MOVW $1518500249, R19
+	// ADDW R19, R12
+	// ADDW R9, R12
+	// ADDW R8, R12
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 4(RSP), R9
+	// MOVW R9, 68(R8)
+
+	// // ROUND1x(18)
+	// // SHUFFLE
+	// MOVW 8(RSP), R9
+	// MOVW 60(RSP), R20
+	// EORW R20, R9
+	// MOVW 40(RSP), R20
+	// EORW R20, R9
+	// MOVW 16(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 8(RSP)
+
+	// // FUNC1
+	// MOVW R10, R15
+	// EORW R14, R15
+	// ANDW R13, R15
+	// EORW R10, R15
+
+	// // MIX
+	// RORW $2, R13
+	// ADDW R15, R11
+	// MOVW R12, R8
+	// RORW $27, R8
+	// MOVW $1518500249, R19
+	// ADDW R19, R11
+	// ADDW R9, R11
+	// ADDW R8, R11
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 8(RSP), R9
+	// MOVW R9, 72(R8)
+
+	// // ROUND1x(19)
+	// // SHUFFLE
+	// MOVW 12(RSP), R9
+	// MOVW (RSP), R20
+	// EORW R20, R9
+	// MOVW 44(RSP), R20
+	// EORW R20, R9
+	// MOVW 20(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 12(RSP)
+
+	// // FUNC1
+	// MOVW R14, R15
+	// EORW R13, R15
+	// ANDW R12, R15
+	// EORW R14, R15
+
+	// // MIX
+	// RORW $2, R12
+	// ADDW R15, R10
+	// MOVW R11, R8
+	// RORW $27, R8
+	// MOVW $1518500249, R19
+	// ADDW R19, R10
+	// ADDW R9, R10
+	// ADDW R8, R10
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 12(RSP), R9
+	// MOVW R9, 76(R8)
+
+	// // ROUND2 (steps 20-39)
+	// // ROUND2(20)
+	// // SHUFFLE
+	// MOVW 16(RSP), R9
+	// MOVW 4(RSP), R20
+	// EORW R20, R9
+	// MOVW 48(RSP), R20
+	// EORW R20, R9
+	// MOVW 24(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 16(RSP)
+
+	// // FUNC2
+	// MOVW R11, R15
+	// EORW R12, R15
+	// EORW R13, R15
+
+	// // MIX
+	// RORW $2, R11
+	// ADDW R15, R14
+	// MOVW R10, R8
+	// RORW $27, R8
+	// MOVW $1859775393, R19
+	// ADDW R19, R14
+	// ADDW R9, R14
+	// ADDW R8, R14
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 16(RSP), R9
+	// MOVW R9, 80(R8)
+
+	// // ROUND2(21)
+	// // SHUFFLE
+	// MOVW 20(RSP), R9
+	// MOVW 8(RSP), R20
+	// EORW R20, R9
+	// MOVW 52(RSP), R20
+	// EORW R20, R9
+	// MOVW 28(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 20(RSP)
+
+	// // FUNC2
+	// MOVW R10, R15
+	// EORW R11, R15
+	// EORW R12, R15
+
+	// // MIX
+	// RORW $2, R10
+	// ADDW R15, R13
+	// MOVW R14, R8
+	// RORW $27, R8
+	// MOVW $1859775393, R19
+	// ADDW R19, R13
+	// ADDW R9, R13
+	// ADDW R8, R13
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 20(RSP), R9
+	// MOVW R9, 84(R8)
+
+	// // ROUND2(22)
+	// // SHUFFLE
+	// MOVW 24(RSP), R9
+	// MOVW 12(RSP), R20
+	// EORW R20, R9
+	// MOVW 56(RSP), R20
+	// EORW R20, R9
+	// MOVW 32(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 24(RSP)
+
+	// // FUNC2
+	// MOVW R14, R15
+	// EORW R10, R15
+	// EORW R11, R15
+
+	// // MIX
+	// RORW $2, R14
+	// ADDW R15, R12
+	// MOVW R13, R8
+	// RORW $27, R8
+	// MOVW $1859775393, R19
+	// ADDW R19, R12
+	// ADDW R9, R12
+	// ADDW R8, R12
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 24(RSP), R9
+	// MOVW R9, 88(R8)
+
+	// // ROUND2(23)
+	// // SHUFFLE
+	// MOVW 28(RSP), R9
+	// MOVW 16(RSP), R20
+	// EORW R20, R9
+	// MOVW 60(RSP), R20
+	// EORW R20, R9
+	// MOVW 36(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 28(RSP)
+
+	// // FUNC2
+	// MOVW R13, R15
+	// EORW R14, R15
+	// EORW R10, R15
+
+	// // MIX
+	// RORW $2, R13
+	// ADDW R15, R11
+	// MOVW R12, R8
+	// RORW $27, R8
+	// MOVW $1859775393, R19
+	// ADDW R19, R11
+	// ADDW R9, R11
+	// ADDW R8, R11
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 28(RSP), R9
+	// MOVW R9, 92(R8)
+
+	// // ROUND2(24)
+	// // SHUFFLE
+	// MOVW 32(RSP), R9
+	// MOVW 20(RSP), R20
+	// EORW R20, R9
+	// MOVW (RSP), R20
+	// EORW R20, R9
+	// MOVW 40(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 32(RSP)
+
+	// // FUNC2
+	// MOVW R12, R15
+	// EORW R13, R15
+	// EORW R14, R15
+
+	// // MIX
+	// RORW $2, R12
+	// ADDW R15, R10
+	// MOVW R11, R8
+	// RORW $27, R8
+	// MOVW $1859775393, R19
+	// ADDW R19, R10
+	// ADDW R9, R10
+	// ADDW R8, R10
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 32(RSP), R9
+	// MOVW R9, 96(R8)
+
+	// // ROUND2(25)
+	// // SHUFFLE
+	// MOVW 36(RSP), R9
+	// MOVW 24(RSP), R20
+	// EORW R20, R9
+	// MOVW 4(RSP), R20
+	// EORW R20, R9
+	// MOVW 44(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 36(RSP)
+
+	// // FUNC2
+	// MOVW R11, R15
+	// EORW R12, R15
+	// EORW R13, R15
+
+	// // MIX
+	// RORW $2, R11
+	// ADDW R15, R14
+	// MOVW R10, R8
+	// RORW $27, R8
+	// MOVW $1859775393, R19
+	// ADDW R19, R14
+	// ADDW R9, R14
+	// ADDW R8, R14
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 36(RSP), R9
+	// MOVW R9, 100(R8)
+
+	// // ROUND2(26)
+	// // SHUFFLE
+	// MOVW 40(RSP), R9
+	// MOVW 28(RSP), R20
+	// EORW R20, R9
+	// MOVW 8(RSP), R20
+	// EORW R20, R9
+	// MOVW 48(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 40(RSP)
+
+	// // FUNC2
+	// MOVW R10, R15
+	// EORW R11, R15
+	// EORW R12, R15
+
+	// // MIX
+	// RORW $2, R10
+	// ADDW R15, R13
+	// MOVW R14, R8
+	// RORW $27, R8
+	// MOVW $1859775393, R19
+	// ADDW R19, R13
+	// ADDW R9, R13
+	// ADDW R8, R13
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 40(RSP), R9
+	// MOVW R9, 104(R8)
+
+	// // ROUND2(27)
+	// // SHUFFLE
+	// MOVW 44(RSP), R9
+	// MOVW 32(RSP), R20
+	// EORW R20, R9
+	// MOVW 12(RSP), R20
+	// EORW R20, R9
+	// MOVW 52(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 44(RSP)
+
+	// // FUNC2
+	// MOVW R14, R15
+	// EORW R10, R15
+	// EORW R11, R15
+
+	// // MIX
+	// RORW $2, R14
+	// ADDW R15, R12
+	// MOVW R13, R8
+	// RORW $27, R8
+	// MOVW $1859775393, R19
+	// ADDW R19, R12
+	// ADDW R9, R12
+	// ADDW R8, R12
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 44(RSP), R9
+	// MOVW R9, 108(R8)
+
+	// // ROUND2(28)
+	// // SHUFFLE
+	// MOVW 48(RSP), R9
+	// MOVW 36(RSP), R20
+	// EORW R20, R9
+	// MOVW 16(RSP), R20
+	// EORW R20, R9
+	// MOVW 56(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 48(RSP)
+
+	// // FUNC2
+	// MOVW R13, R15
+	// EORW R14, R15
+	// EORW R10, R15
+
+	// // MIX
+	// RORW $2, R13
+	// ADDW R15, R11
+	// MOVW R12, R8
+	// RORW $27, R8
+	// MOVW $1859775393, R19
+	// ADDW R19, R11
+	// ADDW R9, R11
+	// ADDW R8, R11
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 48(RSP), R9
+	// MOVW R9, 112(R8)
+
+	// // ROUND2(29)
+	// // SHUFFLE
+	// MOVW 52(RSP), R9
+	// MOVW 40(RSP), R20
+	// EORW R20, R9
+	// MOVW 20(RSP), R20
+	// EORW R20, R9
+	// MOVW 60(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 52(RSP)
+
+	// // FUNC2
+	// MOVW R12, R15
+	// EORW R13, R15
+	// EORW R14, R15
+
+	// // MIX
+	// RORW $2, R12
+	// ADDW R15, R10
+	// MOVW R11, R8
+	// RORW $27, R8
+	// MOVW $1859775393, R19
+	// ADDW R19, R10
+	// ADDW R9, R10
+	// ADDW R8, R10
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 52(RSP), R9
+	// MOVW R9, 116(R8)
+
+	// // ROUND2(30)
+	// // SHUFFLE
+	// MOVW 56(RSP), R9
+	// MOVW 44(RSP), R20
+	// EORW R20, R9
+	// MOVW 24(RSP), R20
+	// EORW R20, R9
+	// MOVW (RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 56(RSP)
+
+	// // FUNC2
+	// MOVW R11, R15
+	// EORW R12, R15
+	// EORW R13, R15
+
+	// // MIX
+	// RORW $2, R11
+	// ADDW R15, R14
+	// MOVW R10, R8
+	// RORW $27, R8
+	// MOVW $1859775393, R19
+	// ADDW R19, R14
+	// ADDW R9, R14
+	// ADDW R8, R14
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 56(RSP), R9
+	// MOVW R9, 120(R8)
+
+	// // ROUND2(31)
+	// // SHUFFLE
+	// MOVW 60(RSP), R9
+	// MOVW 48(RSP), R20
+	// EORW R20, R9
+	// MOVW 28(RSP), R20
+	// EORW R20, R9
+	// MOVW 4(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 60(RSP)
+
+	// // FUNC2
+	// MOVW R10, R15
+	// EORW R11, R15
+	// EORW R12, R15
+
+	// // MIX
+	// RORW $2, R10
+	// ADDW R15, R13
+	// MOVW R14, R8
+	// RORW $27, R8
+	// MOVW $1859775393, R19
+	// ADDW R19, R13
+	// ADDW R9, R13
+	// ADDW R8, R13
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 60(RSP), R9
+	// MOVW R9, 124(R8)
+
+	// // ROUND2(32)
+	// // SHUFFLE
+	// MOVW (RSP), R9
+	// MOVW 52(RSP), R20
+	// EORW R20, R9
+	// MOVW 32(RSP), R20
+	// EORW R20, R9
+	// MOVW 8(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, (RSP)
+
+	// // FUNC2
+	// MOVW R14, R15
+	// EORW R10, R15
+	// EORW R11, R15
+
+	// // MIX
+	// RORW $2, R14
+	// ADDW R15, R12
+	// MOVW R13, R8
+	// RORW $27, R8
+	// MOVW $1859775393, R19
+	// ADDW R19, R12
+	// ADDW R9, R12
+	// ADDW R8, R12
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW (RSP), R9
+	// MOVW R9, 128(R8)
+
+	// // ROUND2(33)
+	// // SHUFFLE
+	// MOVW 4(RSP), R9
+	// MOVW 56(RSP), R20
+	// EORW R20, R9
+	// MOVW 36(RSP), R20
+	// EORW R20, R9
+	// MOVW 12(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 4(RSP)
+
+	// // FUNC2
+	// MOVW R13, R15
+	// EORW R14, R15
+	// EORW R10, R15
+
+	// // MIX
+	// RORW $2, R13
+	// ADDW R15, R11
+	// MOVW R12, R8
+	// RORW $27, R8
+	// MOVW $1859775393, R19
+	// ADDW R19, R11
+	// ADDW R9, R11
+	// ADDW R8, R11
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 4(RSP), R9
+	// MOVW R9, 132(R8)
+
+	// // ROUND2(34)
+	// // SHUFFLE
+	// MOVW 8(RSP), R9
+	// MOVW 60(RSP), R20
+	// EORW R20, R9
+	// MOVW 40(RSP), R20
+	// EORW R20, R9
+	// MOVW 16(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 8(RSP)
+
+	// // FUNC2
+	// MOVW R12, R15
+	// EORW R13, R15
+	// EORW R14, R15
+
+	// // MIX
+	// RORW $2, R12
+	// ADDW R15, R10
+	// MOVW R11, R8
+	// RORW $27, R8
+	// MOVW $1859775393, R19
+	// ADDW R19, R10
+	// ADDW R9, R10
+	// ADDW R8, R10
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 8(RSP), R9
+	// MOVW R9, 136(R8)
+
+	// // ROUND2(35)
+	// // SHUFFLE
+	// MOVW 12(RSP), R9
+	// MOVW (RSP), R20
+	// EORW R20, R9
+	// MOVW 44(RSP), R20
+	// EORW R20, R9
+	// MOVW 20(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 12(RSP)
+
+	// // FUNC2
+	// MOVW R11, R15
+	// EORW R12, R15
+	// EORW R13, R15
+
+	// // MIX
+	// RORW $2, R11
+	// ADDW R15, R14
+	// MOVW R10, R8
+	// RORW $27, R8
+	// MOVW $1859775393, R19
+	// ADDW R19, R14
+	// ADDW R9, R14
+	// ADDW R8, R14
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 12(RSP), R9
+	// MOVW R9, 140(R8)
+
+	// // ROUND2(36)
+	// // SHUFFLE
+	// MOVW 16(RSP), R9
+	// MOVW 4(RSP), R20
+	// EORW R20, R9
+	// MOVW 48(RSP), R20
+	// EORW R20, R9
+	// MOVW 24(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 16(RSP)
+
+	// // FUNC2
+	// MOVW R10, R15
+	// EORW R11, R15
+	// EORW R12, R15
+
+	// // MIX
+	// RORW $2, R10
+	// ADDW R15, R13
+	// MOVW R14, R8
+	// RORW $27, R8
+	// MOVW $1859775393, R19
+	// ADDW R19, R13
+	// ADDW R9, R13
+	// ADDW R8, R13
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 16(RSP), R9
+	// MOVW R9, 144(R8)
+
+	// // ROUND2(37)
+	// // SHUFFLE
+	// MOVW 20(RSP), R9
+	// MOVW 8(RSP), R20
+	// EORW R20, R9
+	// MOVW 52(RSP), R20
+	// EORW R20, R9
+	// MOVW 28(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 20(RSP)
+
+	// // FUNC2
+	// MOVW R14, R15
+	// EORW R10, R15
+	// EORW R11, R15
+
+	// // MIX
+	// RORW $2, R14
+	// ADDW R15, R12
+	// MOVW R13, R8
+	// RORW $27, R8
+	// MOVW $1859775393, R19
+	// ADDW R19, R12
+	// ADDW R9, R12
+	// ADDW R8, R12
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 20(RSP), R9
+	// MOVW R9, 148(R8)
+
+	// // ROUND2(38)
+	// // SHUFFLE
+	// MOVW 24(RSP), R9
+	// MOVW 12(RSP), R20
+	// EORW R20, R9
+	// MOVW 56(RSP), R20
+	// EORW R20, R9
+	// MOVW 32(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 24(RSP)
+
+	// // FUNC2
+	// MOVW R13, R15
+	// EORW R14, R15
+	// EORW R10, R15
+
+	// // MIX
+	// RORW $2, R13
+	// ADDW R15, R11
+	// MOVW R12, R8
+	// RORW $27, R8
+	// MOVW $1859775393, R19
+	// ADDW R19, R11
+	// ADDW R9, R11
+	// ADDW R8, R11
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 24(RSP), R9
+	// MOVW R9, 152(R8)
+
+	// // ROUND2(39)
+	// // SHUFFLE
+	// MOVW 28(RSP), R9
+	// MOVW 16(RSP), R20
+	// EORW R20, R9
+	// MOVW 60(RSP), R20
+	// EORW R20, R9
+	// MOVW 36(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 28(RSP)
+
+	// // FUNC2
+	// MOVW R12, R15
+	// EORW R13, R15
+	// EORW R14, R15
+
+	// // MIX
+	// RORW $2, R12
+	// ADDW R15, R10
+	// MOVW R11, R8
+	// RORW $27, R8
+	// MOVW $1859775393, R19
+	// ADDW R19, R10
+	// ADDW R9, R10
+	// ADDW R8, R10
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 28(RSP), R9
+	// MOVW R9, 156(R8)
+
+	// // ROUND3 (steps 40-59)
+	// // ROUND3(40)
+	// // SHUFFLE
+	// MOVW 32(RSP), R9
+	// MOVW 20(RSP), R20
+	// EORW R20, R9
+	// MOVW (RSP), R20
+	// EORW R20, R9
+	// MOVW 40(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 32(RSP)
+
+	// // FUNC3
+	// MOVW R11, R8
+	// ORRW R12, R8
+	// ANDW R13, R8
+	// MOVW R11, R15
+	// ANDW R12, R15
+	// ORRW R8, R15
+
+	// // MIX
+	// RORW $2, R11
+	// ADDW R15, R14
+	// MOVW R10, R8
+	// RORW $27, R8
+	// MOVW $2400959708, R19
+	// ADDW R19, R14
+	// ADDW R9, R14
+	// ADDW R8, R14
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 32(RSP), R9
+	// MOVW R9, 160(R8)
+
+	// // ROUND3(41)
+	// // SHUFFLE
+	// MOVW 36(RSP), R9
+	// MOVW 24(RSP), R20
+	// EORW R20, R9
+	// MOVW 4(RSP), R20
+	// EORW R20, R9
+	// MOVW 44(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 36(RSP)
+
+	// // FUNC3
+	// MOVW R10, R8
+	// ORRW R11, R8
+	// ANDW R12, R8
+	// MOVW R10, R15
+	// ANDW R11, R15
+	// ORRW R8, R15
+
+	// // MIX
+	// RORW $2, R10
+	// ADDW R15, R13
+	// MOVW R14, R8
+	// RORW $27, R8
+	// MOVW $2400959708, R19
+	// ADDW R19, R13
+	// ADDW R9, R13
+	// ADDW R8, R13
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 36(RSP), R9
+	// MOVW R9, 164(R8)
+
+	// // ROUND3(42)
+	// // SHUFFLE
+	// MOVW 40(RSP), R9
+	// MOVW 28(RSP), R20
+	// EORW R20, R9
+	// MOVW 8(RSP), R20
+	// EORW R20, R9
+	// MOVW 48(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 40(RSP)
+
+	// // FUNC3
+	// MOVW R14, R8
+	// ORRW R10, R8
+	// ANDW R11, R8
+	// MOVW R14, R15
+	// ANDW R10, R15
+	// ORRW R8, R15
+
+	// // MIX
+	// RORW $2, R14
+	// ADDW R15, R12
+	// MOVW R13, R8
+	// RORW $27, R8
+	// MOVW $2400959708, R19
+	// ADDW R19, R12
+	// ADDW R9, R12
+	// ADDW R8, R12
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 40(RSP), R9
+	// MOVW R9, 168(R8)
+
+	// // ROUND3(43)
+	// // SHUFFLE
+	// MOVW 44(RSP), R9
+	// MOVW 32(RSP), R20
+	// EORW R20, R9
+	// MOVW 12(RSP), R20
+	// EORW R20, R9
+	// MOVW 52(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 44(RSP)
+
+	// // FUNC3
+	// MOVW R13, R8
+	// ORRW R14, R8
+	// ANDW R10, R8
+	// MOVW R13, R15
+	// ANDW R14, R15
+	// ORRW R8, R15
+
+	// // MIX
+	// RORW $2, R13
+	// ADDW R15, R11
+	// MOVW R12, R8
+	// RORW $27, R8
+	// MOVW $2400959708, R19
+	// ADDW R19, R11
+	// ADDW R9, R11
+	// ADDW R8, R11
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 44(RSP), R9
+	// MOVW R9, 172(R8)
+
+	// // ROUND3(44)
+	// // SHUFFLE
+	// MOVW 48(RSP), R9
+	// MOVW 36(RSP), R20
+	// EORW R20, R9
+	// MOVW 16(RSP), R20
+	// EORW R20, R9
+	// MOVW 56(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 48(RSP)
+
+	// // FUNC3
+	// MOVW R12, R8
+	// ORRW R13, R8
+	// ANDW R14, R8
+	// MOVW R12, R15
+	// ANDW R13, R15
+	// ORRW R8, R15
+
+	// // MIX
+	// RORW $2, R12
+	// ADDW R15, R10
+	// MOVW R11, R8
+	// RORW $27, R8
+	// MOVW $2400959708, R19
+	// ADDW R19, R10
+	// ADDW R9, R10
+	// ADDW R8, R10
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 48(RSP), R9
+	// MOVW R9, 176(R8)
+
+	// // ROUND3(45)
+	// // SHUFFLE
+	// MOVW 52(RSP), R9
+	// MOVW 40(RSP), R20
+	// EORW R20, R9
+	// MOVW 20(RSP), R20
+	// EORW R20, R9
+	// MOVW 60(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 52(RSP)
+
+	// // FUNC3
+	// MOVW R11, R8
+	// ORRW R12, R8
+	// ANDW R13, R8
+	// MOVW R11, R15
+	// ANDW R12, R15
+	// ORRW R8, R15
+
+	// // MIX
+	// RORW $2, R11
+	// ADDW R15, R14
+	// MOVW R10, R8
+	// RORW $27, R8
+	// MOVW $2400959708, R19
+	// ADDW R19, R14
+	// ADDW R9, R14
+	// ADDW R8, R14
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 52(RSP), R9
+	// MOVW R9, 180(R8)
+
+	// // ROUND3(46)
+	// // SHUFFLE
+	// MOVW 56(RSP), R9
+	// MOVW 44(RSP), R20
+	// EORW R20, R9
+	// MOVW 24(RSP), R20
+	// EORW R20, R9
+	// MOVW (RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 56(RSP)
+
+	// // FUNC3
+	// MOVW R10, R8
+	// ORRW R11, R8
+	// ANDW R12, R8
+	// MOVW R10, R15
+	// ANDW R11, R15
+	// ORRW R8, R15
+
+	// // MIX
+	// RORW $2, R10
+	// ADDW R15, R13
+	// MOVW R14, R8
+	// RORW $27, R8
+	// MOVW $2400959708, R19
+	// ADDW R19, R13
+	// ADDW R9, R13
+	// ADDW R8, R13
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 56(RSP), R9
+	// MOVW R9, 184(R8)
+
+	// // ROUND3(47)
+	// // SHUFFLE
+	// MOVW 60(RSP), R9
+	// MOVW 48(RSP), R20
+	// EORW R20, R9
+	// MOVW 28(RSP), R20
+	// EORW R20, R9
+	// MOVW 4(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 60(RSP)
+
+	// // FUNC3
+	// MOVW R14, R8
+	// ORRW R10, R8
+	// ANDW R11, R8
+	// MOVW R14, R15
+	// ANDW R10, R15
+	// ORRW R8, R15
+
+	// // MIX
+	// RORW $2, R14
+	// ADDW R15, R12
+	// MOVW R13, R8
+	// RORW $27, R8
+	// MOVW $2400959708, R19
+	// ADDW R19, R12
+	// ADDW R9, R12
+	// ADDW R8, R12
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 60(RSP), R9
+	// MOVW R9, 188(R8)
+
+	// // ROUND3(48)
+	// // SHUFFLE
+	// MOVW (RSP), R9
+	// MOVW 52(RSP), R20
+	// EORW R20, R9
+	// MOVW 32(RSP), R20
+	// EORW R20, R9
+	// MOVW 8(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, (RSP)
+
+	// // FUNC3
+	// MOVW R13, R8
+	// ORRW R14, R8
+	// ANDW R10, R8
+	// MOVW R13, R15
+	// ANDW R14, R15
+	// ORRW R8, R15
+
+	// // MIX
+	// RORW $2, R13
+	// ADDW R15, R11
+	// MOVW R12, R8
+	// RORW $27, R8
+	// MOVW $2400959708, R19
+	// ADDW R19, R11
+	// ADDW R9, R11
+	// ADDW R8, R11
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW (RSP), R9
+	// MOVW R9, 192(R8)
+
+	// // ROUND3(49)
+	// // SHUFFLE
+	// MOVW 4(RSP), R9
+	// MOVW 56(RSP), R20
+	// EORW R20, R9
+	// MOVW 36(RSP), R20
+	// EORW R20, R9
+	// MOVW 12(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 4(RSP)
+
+	// // FUNC3
+	// MOVW R12, R8
+	// ORRW R13, R8
+	// ANDW R14, R8
+	// MOVW R12, R15
+	// ANDW R13, R15
+	// ORRW R8, R15
+
+	// // MIX
+	// RORW $2, R12
+	// ADDW R15, R10
+	// MOVW R11, R8
+	// RORW $27, R8
+	// MOVW $2400959708, R19
+	// ADDW R19, R10
+	// ADDW R9, R10
+	// ADDW R8, R10
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 4(RSP), R9
+	// MOVW R9, 196(R8)
+
+	// // ROUND3(50)
+	// // SHUFFLE
+	// MOVW 8(RSP), R9
+	// MOVW 60(RSP), R20
+	// EORW R20, R9
+	// MOVW 40(RSP), R20
+	// EORW R20, R9
+	// MOVW 16(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 8(RSP)
+
+	// // FUNC3
+	// MOVW R11, R8
+	// ORRW R12, R8
+	// ANDW R13, R8
+	// MOVW R11, R15
+	// ANDW R12, R15
+	// ORRW R8, R15
+
+	// // MIX
+	// RORW $2, R11
+	// ADDW R15, R14
+	// MOVW R10, R8
+	// RORW $27, R8
+	// MOVW $2400959708, R19
+	// ADDW R19, R14
+	// ADDW R9, R14
+	// ADDW R8, R14
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 8(RSP), R9
+	// MOVW R9, 200(R8)
+
+	// // ROUND3(51)
+	// // SHUFFLE
+	// MOVW 12(RSP), R9
+	// MOVW (RSP), R20
+	// EORW R20, R9
+	// MOVW 44(RSP), R20
+	// EORW R20, R9
+	// MOVW 20(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 12(RSP)
+
+	// // FUNC3
+	// MOVW R10, R8
+	// ORRW R11, R8
+	// ANDW R12, R8
+	// MOVW R10, R15
+	// ANDW R11, R15
+	// ORRW R8, R15
+
+	// // MIX
+	// RORW $2, R10
+	// ADDW R15, R13
+	// MOVW R14, R8
+	// RORW $27, R8
+	// MOVW $2400959708, R19
+	// ADDW R19, R13
+	// ADDW R9, R13
+	// ADDW R8, R13
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 12(RSP), R9
+	// MOVW R9, 204(R8)
+
+	// // ROUND3(52)
+	// // SHUFFLE
+	// MOVW 16(RSP), R9
+	// MOVW 4(RSP), R20
+	// EORW R20, R9
+	// MOVW 48(RSP), R20
+	// EORW R20, R9
+	// MOVW 24(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 16(RSP)
+
+	// // FUNC3
+	// MOVW R14, R8
+	// ORRW R10, R8
+	// ANDW R11, R8
+	// MOVW R14, R15
+	// ANDW R10, R15
+	// ORRW R8, R15
+
+	// // MIX
+	// RORW $2, R14
+	// ADDW R15, R12
+	// MOVW R13, R8
+	// RORW $27, R8
+	// MOVW $2400959708, R19
+	// ADDW R19, R12
+	// ADDW R9, R12
+	// ADDW R8, R12
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 16(RSP), R9
+	// MOVW R9, 208(R8)
+
+	// // ROUND3(53)
+	// // SHUFFLE
+	// MOVW 20(RSP), R9
+	// MOVW 8(RSP), R20
+	// EORW R20, R9
+	// MOVW 52(RSP), R20
+	// EORW R20, R9
+	// MOVW 28(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 20(RSP)
+
+	// // FUNC3
+	// MOVW R13, R8
+	// ORRW R14, R8
+	// ANDW R10, R8
+	// MOVW R13, R15
+	// ANDW R14, R15
+	// ORRW R8, R15
+
+	// // MIX
+	// RORW $2, R13
+	// ADDW R15, R11
+	// MOVW R12, R8
+	// RORW $27, R8
+	// MOVW $2400959708, R19
+	// ADDW R19, R11
+	// ADDW R9, R11
+	// ADDW R8, R11
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 20(RSP), R9
+	// MOVW R9, 212(R8)
+
+	// // ROUND3(54)
+	// // SHUFFLE
+	// MOVW 24(RSP), R9
+	// MOVW 12(RSP), R20
+	// EORW R20, R9
+	// MOVW 56(RSP), R20
+	// EORW R20, R9
+	// MOVW 32(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 24(RSP)
+
+	// // FUNC3
+	// MOVW R12, R8
+	// ORRW R13, R8
+	// ANDW R14, R8
+	// MOVW R12, R15
+	// ANDW R13, R15
+	// ORRW R8, R15
+
+	// // MIX
+	// RORW $2, R12
+	// ADDW R15, R10
+	// MOVW R11, R8
+	// RORW $27, R8
+	// MOVW $2400959708, R19
+	// ADDW R19, R10
+	// ADDW R9, R10
+	// ADDW R8, R10
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 24(RSP), R9
+	// MOVW R9, 216(R8)
+
+	// // ROUND3(55)
+	// // SHUFFLE
+	// MOVW 28(RSP), R9
+	// MOVW 16(RSP), R20
+	// EORW R20, R9
+	// MOVW 60(RSP), R20
+	// EORW R20, R9
+	// MOVW 36(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 28(RSP)
+
+	// // FUNC3
+	// MOVW R11, R8
+	// ORRW R12, R8
+	// ANDW R13, R8
+	// MOVW R11, R15
+	// ANDW R12, R15
+	// ORRW R8, R15
+
+	// // MIX
+	// RORW $2, R11
+	// ADDW R15, R14
+	// MOVW R10, R8
+	// RORW $27, R8
+	// MOVW $2400959708, R19
+	// ADDW R19, R14
+	// ADDW R9, R14
+	// ADDW R8, R14
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 28(RSP), R9
+	// MOVW R9, 220(R8)
+
+	// // ROUND3(56)
+	// // SHUFFLE
+	// MOVW 32(RSP), R9
+	// MOVW 20(RSP), R20
+	// EORW R20, R9
+	// MOVW (RSP), R20
+	// EORW R20, R9
+	// MOVW 40(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 32(RSP)
+
+	// // FUNC3
+	// MOVW R10, R8
+	// ORRW R11, R8
+	// ANDW R12, R8
+	// MOVW R10, R15
+	// ANDW R11, R15
+	// ORRW R8, R15
+
+	// // MIX
+	// RORW $2, R10
+	// ADDW R15, R13
+	// MOVW R14, R8
+	// RORW $27, R8
+	// MOVW $2400959708, R19
+	// ADDW R19, R13
+	// ADDW R9, R13
+	// ADDW R8, R13
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 32(RSP), R9
+	// MOVW R9, 224(R8)
+
+	// // ROUND3(57)
+	// // SHUFFLE
+	// MOVW 36(RSP), R9
+	// MOVW 24(RSP), R20
+	// EORW R20, R9
+	// MOVW 4(RSP), R20
+	// EORW R20, R9
+	// MOVW 44(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 36(RSP)
+
+	// // FUNC3
+	// MOVW R14, R8
+	// ORRW R10, R8
+	// ANDW R11, R8
+	// MOVW R14, R15
+	// ANDW R10, R15
+	// ORRW R8, R15
+
+	// // MIX
+	// RORW $2, R14
+	// ADDW R15, R12
+	// MOVW R13, R8
+	// RORW $27, R8
+	// MOVW $2400959708, R19
+	// ADDW R19, R12
+	// ADDW R9, R12
+	// ADDW R8, R12
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 36(RSP), R9
+	// MOVW R9, 228(R8)
+
+	// // Load cs
+	// MOVD cs_base+56(FP), R8
+	// MOVW R12, 20(R8)
+	// MOVW R13, 24(R8)
+	// MOVW R14, 28(R8)
+	// MOVW R10, 32(R8)
+	// MOVW R11, 36(R8)
+
+	// // ROUND3(58)
+	// // SHUFFLE
+	// MOVW 40(RSP), R9
+	// MOVW 28(RSP), R20
+	// EORW R20, R9
+	// MOVW 8(RSP), R20
+	// EORW R20, R9
+	// MOVW 48(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 40(RSP)
+
+	// // FUNC3
+	// MOVW R13, R8
+	// ORRW R14, R8
+	// ANDW R10, R8
+	// MOVW R13, R15
+	// ANDW R14, R15
+	// ORRW R8, R15
+
+	// // MIX
+	// RORW $2, R13
+	// ADDW R15, R11
+	// MOVW R12, R8
+	// RORW $27, R8
+	// MOVW $2400959708, R19
+	// ADDW R19, R11
+	// ADDW R9, R11
+	// ADDW R8, R11
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 40(RSP), R9
+	// MOVW R9, 232(R8)
+
+	// // ROUND3(59)
+	// // SHUFFLE
+	// MOVW 44(RSP), R9
+	// MOVW 32(RSP), R20
+	// EORW R20, R9
+	// MOVW 12(RSP), R20
+	// EORW R20, R9
+	// MOVW 52(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 44(RSP)
+
+	// // FUNC3
+	// MOVW R12, R8
+	// ORRW R13, R8
+	// ANDW R14, R8
+	// MOVW R12, R15
+	// ANDW R13, R15
+	// ORRW R8, R15
+
+	// // MIX
+	// RORW $2, R12
+	// ADDW R15, R10
+	// MOVW R11, R8
+	// RORW $27, R8
+	// MOVW $2400959708, R19
+	// ADDW R19, R10
+	// ADDW R9, R10
+	// ADDW R8, R10
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 44(RSP), R9
+	// MOVW R9, 236(R8)
+
+	// // ROUND4 (steps 60-79)
+	// // ROUND4(60)
+	// // SHUFFLE
+	// MOVW 48(RSP), R9
+	// MOVW 36(RSP), R20
+	// EORW R20, R9
+	// MOVW 16(RSP), R20
+	// EORW R20, R9
+	// MOVW 56(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 48(RSP)
+
+	// // FUNC2
+	// MOVW R11, R15
+	// EORW R12, R15
+	// EORW R13, R15
+
+	// // MIX
+	// RORW $2, R11
+	// ADDW R15, R14
+	// MOVW R10, R8
+	// RORW $27, R8
+	// MOVW $3395469782, R19
+	// ADDW R19, R14
+	// ADDW R9, R14
+	// ADDW R8, R14
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 48(RSP), R9
+	// MOVW R9, 240(R8)
+
+	// // ROUND4(61)
+	// // SHUFFLE
+	// MOVW 52(RSP), R9
+	// MOVW 40(RSP), R20
+	// EORW R20, R9
+	// MOVW 20(RSP), R20
+	// EORW R20, R9
+	// MOVW 60(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 52(RSP)
+
+	// // FUNC2
+	// MOVW R10, R15
+	// EORW R11, R15
+	// EORW R12, R15
+
+	// // MIX
+	// RORW $2, R10
+	// ADDW R15, R13
+	// MOVW R14, R8
+	// RORW $27, R8
+	// MOVW $3395469782, R19
+	// ADDW R19, R13
+	// ADDW R9, R13
+	// ADDW R8, R13
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 52(RSP), R9
+	// MOVW R9, 244(R8)
+
+	// // ROUND4(62)
+	// // SHUFFLE
+	// MOVW 56(RSP), R9
+	// MOVW 44(RSP), R20
+	// EORW R20, R9
+	// MOVW 24(RSP), R20
+	// EORW R20, R9
+	// MOVW (RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 56(RSP)
+
+	// // FUNC2
+	// MOVW R14, R15
+	// EORW R10, R15
+	// EORW R11, R15
+
+	// // MIX
+	// RORW $2, R14
+	// ADDW R15, R12
+	// MOVW R13, R8
+	// RORW $27, R8
+	// MOVW $3395469782, R19
+	// ADDW R19, R12
+	// ADDW R9, R12
+	// ADDW R8, R12
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 56(RSP), R9
+	// MOVW R9, 248(R8)
+
+	// // ROUND4(63)
+	// // SHUFFLE
+	// MOVW 60(RSP), R9
+	// MOVW 48(RSP), R20
+	// EORW R20, R9
+	// MOVW 28(RSP), R20
+	// EORW R20, R9
+	// MOVW 4(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 60(RSP)
+
+	// // FUNC2
+	// MOVW R13, R15
+	// EORW R14, R15
+	// EORW R10, R15
+
+	// // MIX
+	// RORW $2, R13
+	// ADDW R15, R11
+	// MOVW R12, R8
+	// RORW $27, R8
+	// MOVW $3395469782, R19
+	// ADDW R19, R11
+	// ADDW R9, R11
+	// ADDW R8, R11
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 60(RSP), R9
+	// MOVW R9, 252(R8)
+
+	// // ROUND4(64)
+	// // SHUFFLE
+	// MOVW (RSP), R9
+	// MOVW 52(RSP), R20
+	// EORW R20, R9
+	// MOVW 32(RSP), R20
+	// EORW R20, R9
+	// MOVW 8(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, (RSP)
+
+	// // FUNC2
+	// MOVW R12, R15
+	// EORW R13, R15
+	// EORW R14, R15
+
+	// // MIX
+	// RORW $2, R12
+	// ADDW R15, R10
+	// MOVW R11, R8
+	// RORW $27, R8
+	// MOVW $3395469782, R19
+	// ADDW R19, R10
+	// ADDW R9, R10
+	// ADDW R8, R10
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW (RSP), R9
+	// MOVW R9, 256(R8)
+
+	// // Load cs
+	// MOVD cs_base+56(FP), R8
+	// MOVW R10, 40(R8)
+	// MOVW R11, 44(R8)
+	// MOVW R12, 48(R8)
+	// MOVW R13, 52(R8)
+	// MOVW R14, 56(R8)
+
+	// // ROUND4(65)
+	// // SHUFFLE
+	// MOVW 4(RSP), R9
+	// MOVW 56(RSP), R20
+	// EORW R20, R9
+	// MOVW 36(RSP), R20
+	// EORW R20, R9
+	// MOVW 12(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 4(RSP)
+
+	// // FUNC2
+	// MOVW R11, R15
+	// EORW R12, R15
+	// EORW R13, R15
+
+	// // MIX
+	// RORW $2, R11
+	// ADDW R15, R14
+	// MOVW R10, R8
+	// RORW $27, R8
+	// MOVW $3395469782, R19
+	// ADDW R19, R14
+	// ADDW R9, R14
+	// ADDW R8, R14
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 4(RSP), R9
+	// MOVW R9, 260(R8)
+
+	// // ROUND4(66)
+	// // SHUFFLE
+	// MOVW 8(RSP), R9
+	// MOVW 60(RSP), R20
+	// EORW R20, R9
+	// MOVW 40(RSP), R20
+	// EORW R20, R9
+	// MOVW 16(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 8(RSP)
+
+	// // FUNC2
+	// MOVW R10, R15
+	// EORW R11, R15
+	// EORW R12, R15
+
+	// // MIX
+	// RORW $2, R10
+	// ADDW R15, R13
+	// MOVW R14, R8
+	// RORW $27, R8
+	// MOVW $3395469782, R19
+	// ADDW R19, R13
+	// ADDW R9, R13
+	// ADDW R8, R13
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 8(RSP), R9
+	// MOVW R9, 264(R8)
+
+	// // ROUND4(67)
+	// // SHUFFLE
+	// MOVW 12(RSP), R9
+	// MOVW (RSP), R20
+	// EORW R20, R9
+	// MOVW 44(RSP), R20
+	// EORW R20, R9
+	// MOVW 20(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 12(RSP)
+
+	// // FUNC2
+	// MOVW R14, R15
+	// EORW R10, R15
+	// EORW R11, R15
+
+	// // MIX
+	// RORW $2, R14
+	// ADDW R15, R12
+	// MOVW R13, R8
+	// RORW $27, R8
+	// MOVW $3395469782, R19
+	// ADDW R19, R12
+	// ADDW R9, R12
+	// ADDW R8, R12
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 12(RSP), R9
+	// MOVW R9, 268(R8)
+
+	// // ROUND4(68)
+	// // SHUFFLE
+	// MOVW 16(RSP), R9
+	// MOVW 4(RSP), R20
+	// EORW R20, R9
+	// MOVW 48(RSP), R20
+	// EORW R20, R9
+	// MOVW 24(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 16(RSP)
+
+	// // FUNC2
+	// MOVW R13, R15
+	// EORW R14, R15
+	// EORW R10, R15
+
+	// // MIX
+	// RORW $2, R13
+	// ADDW R15, R11
+	// MOVW R12, R8
+	// RORW $27, R8
+	// MOVW $3395469782, R19
+	// ADDW R19, R11
+	// ADDW R9, R11
+	// ADDW R8, R11
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 16(RSP), R9
+	// MOVW R9, 272(R8)
+
+	// // ROUND4(69)
+	// // SHUFFLE
+	// MOVW 20(RSP), R9
+	// MOVW 8(RSP), R20
+	// EORW R20, R9
+	// MOVW 52(RSP), R20
+	// EORW R20, R9
+	// MOVW 28(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 20(RSP)
+
+	// // FUNC2
+	// MOVW R12, R15
+	// EORW R13, R15
+	// EORW R14, R15
+
+	// // MIX
+	// RORW $2, R12
+	// ADDW R15, R10
+	// MOVW R11, R8
+	// RORW $27, R8
+	// MOVW $3395469782, R19
+	// ADDW R19, R10
+	// ADDW R9, R10
+	// ADDW R8, R10
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 20(RSP), R9
+	// MOVW R9, 276(R8)
+
+	// // ROUND4(70)
+	// // SHUFFLE
+	// MOVW 24(RSP), R9
+	// MOVW 12(RSP), R20
+	// EORW R20, R9
+	// MOVW 56(RSP), R20
+	// EORW R20, R9
+	// MOVW 32(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 24(RSP)
+
+	// // FUNC2
+	// MOVW R11, R15
+	// EORW R12, R15
+	// EORW R13, R15
+
+	// // MIX
+	// RORW $2, R11
+	// ADDW R15, R14
+	// MOVW R10, R8
+	// RORW $27, R8
+	// MOVW $3395469782, R19
+	// ADDW R19, R14
+	// ADDW R9, R14
+	// ADDW R8, R14
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 24(RSP), R9
+	// MOVW R9, 280(R8)
+
+	// // ROUND4(71)
+	// // SHUFFLE
+	// MOVW 28(RSP), R9
+	// MOVW 16(RSP), R20
+	// EORW R20, R9
+	// MOVW 60(RSP), R20
+	// EORW R20, R9
+	// MOVW 36(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 28(RSP)
+
+	// // FUNC2
+	// MOVW R10, R15
+	// EORW R11, R15
+	// EORW R12, R15
+
+	// // MIX
+	// RORW $2, R10
+	// ADDW R15, R13
+	// MOVW R14, R8
+	// RORW $27, R8
+	// MOVW $3395469782, R19
+	// ADDW R19, R13
+	// ADDW R9, R13
+	// ADDW R8, R13
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 28(RSP), R9
+	// MOVW R9, 284(R8)
+
+	// // ROUND4(72)
+	// // SHUFFLE
+	// MOVW 32(RSP), R9
+	// MOVW 20(RSP), R20
+	// EORW R20, R9
+	// MOVW (RSP), R20
+	// EORW R20, R9
+	// MOVW 40(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 32(RSP)
+
+	// // FUNC2
+	// MOVW R14, R15
+	// EORW R10, R15
+	// EORW R11, R15
+
+	// // MIX
+	// RORW $2, R14
+	// ADDW R15, R12
+	// MOVW R13, R8
+	// RORW $27, R8
+	// MOVW $3395469782, R19
+	// ADDW R19, R12
+	// ADDW R9, R12
+	// ADDW R8, R12
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 32(RSP), R9
+	// MOVW R9, 288(R8)
+
+	// // ROUND4(73)
+	// // SHUFFLE
+	// MOVW 36(RSP), R9
+	// MOVW 24(RSP), R20
+	// EORW R20, R9
+	// MOVW 4(RSP), R20
+	// EORW R20, R9
+	// MOVW 44(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 36(RSP)
+
+	// // FUNC2
+	// MOVW R13, R15
+	// EORW R14, R15
+	// EORW R10, R15
+
+	// // MIX
+	// RORW $2, R13
+	// ADDW R15, R11
+	// MOVW R12, R8
+	// RORW $27, R8
+	// MOVW $3395469782, R19
+	// ADDW R19, R11
+	// ADDW R9, R11
+	// ADDW R8, R11
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 36(RSP), R9
+	// MOVW R9, 292(R8)
+
+	// // ROUND4(74)
+	// // SHUFFLE
+	// MOVW 40(RSP), R9
+	// MOVW 28(RSP), R20
+	// EORW R20, R9
+	// MOVW 8(RSP), R20
+	// EORW R20, R9
+	// MOVW 48(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 40(RSP)
+
+	// // FUNC2
+	// MOVW R12, R15
+	// EORW R13, R15
+	// EORW R14, R15
+
+	// // MIX
+	// RORW $2, R12
+	// ADDW R15, R10
+	// MOVW R11, R8
+	// RORW $27, R8
+	// MOVW $3395469782, R19
+	// ADDW R19, R10
+	// ADDW R9, R10
+	// ADDW R8, R10
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 40(RSP), R9
+	// MOVW R9, 296(R8)
+
+	// // ROUND4(75)
+	// // SHUFFLE
+	// MOVW 44(RSP), R9
+	// MOVW 32(RSP), R20
+	// EORW R20, R9
+	// MOVW 12(RSP), R20
+	// EORW R20, R9
+	// MOVW 52(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 44(RSP)
+
+	// // FUNC2
+	// MOVW R11, R15
+	// EORW R12, R15
+	// EORW R13, R15
+
+	// // MIX
+	// RORW $2, R11
+	// ADDW R15, R14
+	// MOVW R10, R8
+	// RORW $27, R8
+	// MOVW $3395469782, R19
+	// ADDW R19, R14
+	// ADDW R9, R14
+	// ADDW R8, R14
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 44(RSP), R9
+	// MOVW R9, 300(R8)
+
+	// // ROUND4(76)
+	// // SHUFFLE
+	// MOVW 48(RSP), R9
+	// MOVW 36(RSP), R20
+	// EORW R20, R9
+	// MOVW 16(RSP), R20
+	// EORW R20, R9
+	// MOVW 56(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 48(RSP)
+
+	// // FUNC2
+	// MOVW R10, R15
+	// EORW R11, R15
+	// EORW R12, R15
+
+	// // MIX
+	// RORW $2, R10
+	// ADDW R15, R13
+	// MOVW R14, R8
+	// RORW $27, R8
+	// MOVW $3395469782, R19
+	// ADDW R19, R13
+	// ADDW R9, R13
+	// ADDW R8, R13
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 48(RSP), R9
+	// MOVW R9, 304(R8)
+
+	// // ROUND4(77)
+	// // SHUFFLE
+	// MOVW 52(RSP), R9
+	// MOVW 40(RSP), R20
+	// EORW R20, R9
+	// MOVW 20(RSP), R20
+	// EORW R20, R9
+	// MOVW 60(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 52(RSP)
+
+	// // FUNC2
+	// MOVW R14, R15
+	// EORW R10, R15
+	// EORW R11, R15
+
+	// // MIX
+	// RORW $2, R14
+	// ADDW R15, R12
+	// MOVW R13, R8
+	// RORW $27, R8
+	// MOVW $3395469782, R19
+	// ADDW R19, R12
+	// ADDW R9, R12
+	// ADDW R8, R12
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 52(RSP), R9
+	// MOVW R9, 308(R8)
+
+	// // ROUND4(78)
+	// // SHUFFLE
+	// MOVW 56(RSP), R9
+	// MOVW 44(RSP), R20
+	// EORW R20, R9
+	// MOVW 24(RSP), R20
+	// EORW R20, R9
+	// MOVW (RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 56(RSP)
+
+	// // FUNC2
+	// MOVW R13, R15
+	// EORW R14, R15
+	// EORW R10, R15
+
+	// // MIX
+	// RORW $2, R13
+	// ADDW R15, R11
+	// MOVW R12, R8
+	// RORW $27, R8
+	// MOVW $3395469782, R19
+	// ADDW R19, R11
+	// ADDW R9, R11
+	// ADDW R8, R11
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 56(RSP), R9
+	// MOVW R9, 312(R8)
+
+	// // ROUND4(79)
+	// // SHUFFLE
+	// MOVW 60(RSP), R9
+	// MOVW 48(RSP), R20
+	// EORW R20, R9
+	// MOVW 28(RSP), R20
+	// EORW R20, R9
+	// MOVW 4(RSP), R20
+	// EORW R20, R9
+	// RORW $31, R9
+	// MOVW R9, 60(RSP)
+
+	// // FUNC2
+	// MOVW R12, R15
+	// EORW R13, R15
+	// EORW R14, R15
+
+	// // MIX
+	// RORW $2, R12
+	// ADDW R15, R10
+	// MOVW R11, R8
+	// RORW $27, R8
+	// MOVW $3395469782, R19
+	// ADDW R19, R10
+	// ADDW R9, R10
+	// ADDW R8, R10
+
+	// // Load m1
+	// MOVD m1_base+32(FP), R8
+	// MOVW 60(RSP), R9
+	// MOVW R9, 316(R8)
+
 	// Add registers to temp hash.
 	ADDW R10, R0
 	ADDW R11, R1
 	ADDW R12, R2
 	ADDW R13, R3
 	ADDW R14, R4
-	ADD  $64, R16
-	CMP  R16, R11
-	BLO  loop
+
+	ADD  $64, R16, R16
+	B  loop
 
 end:
 	MOVD dig+0(FP), R8
