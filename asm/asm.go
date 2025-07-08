@@ -71,8 +71,8 @@ func main() {
 	W := func(r int) Mem { return w.Offset((r % 16) * 4) }
 
 	Comment("len(p) >= chunk")
-	CMPQ(p_base, di64)
-	JEQ(LabelRef("end"))
+	CMPQ(di64, p_base)
+	JBE(LabelRef("end"))
 
 	Label("loop")
 	Comment("Initialize registers a, b, c, d, e.")
@@ -150,7 +150,7 @@ func main() {
 	csOffset := 0
 	// Load the current compression state into cs, so it can be used later.
 	// This must be done before shuffles or changes in to the buffer.
-	LOADCS := func(a, b, c, d, e GPVirtual, index int) {
+	LOADCS := func(a, b, c, d, e GPVirtual) {
 		Comment("Load cs")
 		cs_base := Load(Param("cs").Base(), R8)
 		cs := Mem{Base: cs_base, Scale: 1}
@@ -204,7 +204,7 @@ func main() {
 	}
 
 	Comment("ROUND1 (steps 0-15)")
-	LOADCS(a, b, c, d, e, 0)
+	LOADCS(a, b, c, d, e)
 	ROUND1(a, b, c, d, e, 0)
 	ROUND1(e, a, b, c, d, 1)
 	ROUND1(d, e, a, b, c, 2)
@@ -270,7 +270,7 @@ func main() {
 	ROUND3(e, a, b, c, d, 56)
 	ROUND3(d, e, a, b, c, 57)
 
-	LOADCS(c, d, e, a, b, 58)
+	LOADCS(c, d, e, a, b)
 	ROUND3(c, d, e, a, b, 58)
 	ROUND3(b, c, d, e, a, 59)
 
@@ -281,7 +281,7 @@ func main() {
 	ROUND4(c, d, e, a, b, 63)
 	ROUND4(b, c, d, e, a, 64)
 
-	LOADCS(a, b, c, d, e, 65)
+	LOADCS(a, b, c, d, e)
 	ROUND4(a, b, c, d, e, 65)
 	ROUND4(e, a, b, c, d, 66)
 	ROUND4(d, e, a, b, c, 67)
@@ -304,7 +304,6 @@ func main() {
 	}
 
 	ADDQ(I8(Chunk), p_base)
-	CMPQ(p_base, di64)
 	JB(LabelRef("loop"))
 
 	Label("end")
