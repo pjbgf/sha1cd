@@ -19,7 +19,7 @@ jobs:
       fail-fast: false
       matrix:
         go-version: [^1.22.x]
-        platform: [ubuntu-latest]
+        platform: [ubuntu-latest, ubuntu-24.04-arm]
 
     runs-on: ${{ matrix.platform }}
     steps:
