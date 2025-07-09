@@ -5,6 +5,7 @@ package cgo
 import "C"
 
 import (
+	"crypto"
 	"hash"
 	"unsafe"
 )
@@ -13,6 +14,10 @@ const (
 	Size      = 20
 	BlockSize = 64
 )
+
+func init() {
+	crypto.RegisterHash(crypto.SHA1, New)
+}
 
 func New() hash.Hash {
 	d := new(digest)
