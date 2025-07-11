@@ -7,13 +7,18 @@ import (
 	shared "github.com/pjbgf/sha1cd/internal"
 )
 
-// blockARM64 hashes the message p into the current state in dig.
+// blockARM64 hashes the message p into the current state in h.
 // Both m1 and cs are used to store intermediate results which are used by the collision detection logic.
 //
 //go:noescape
-func blockARM64(dig *digest, p []byte, m1 []uint32, cs [][5]uint32)
+func blockARM64(h []uint32, p []byte, m1 []uint32, cs [][5]uint32)
 
 func block(dig *digest, p []byte) {
+	if forceGeneric {
+		blockGeneric(dig, p)
+		return
+	}
+
 	m1 := [shared.Rounds]uint32{}
 	cs := [shared.PreStepState][shared.WordBuffers]uint32{}
 
@@ -22,14 +27,14 @@ func block(dig *digest, p []byte) {
 		// works on a block by block basis.
 		chunk := p[:shared.Chunk]
 
-		blockARM64(dig, chunk, m1[:], cs[:])
+		blockARM64(dig.h[:], chunk, m1[:], cs[:])
 
-		col := checkCollision(m1, cs, dig.h)
+		col := checkCollision(m1, cs, dig.h[:])
 		if col {
 			dig.col = true
 
-			blockARM64(dig, chunk, m1[:], cs[:])
-			blockARM64(dig, chunk, m1[:], cs[:])
+			blockARM64(dig.h[:], chunk, m1[:], cs[:])
+			blockARM64(dig.h[:], chunk, m1[:], cs[:])
 		}
 
 		p = p[shared.Chunk:]

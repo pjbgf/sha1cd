@@ -47,7 +47,7 @@
 	MOVW R9, (index*4)(RSP)
 
 #define LOADCS(a, b, c, d, e, index) \
-	MOVD cs_base+56(FP), R27; \
+	MOVD cs_base+72(FP), R27; \
 	MOVW a, ((index*20))(R27); \
 	MOVW b, ((index*20)+4)(R27); \
 	MOVW c, ((index*20)+8)(R27); \
@@ -67,7 +67,7 @@
 
 // LOADM1 stores message word to m1 array.
 #define LOADM1(index) \
-	MOVD m1_base+32(FP), R27; \
+	MOVD m1_base+48(FP), R27; \
 	MOVW ((index&0xf)*4)(RSP), R9; \
 	MOVW R9, (index*4)(R27)
 
@@ -101,11 +101,11 @@
 	MIX(a, b, c, d, e, RoundConst3); \
 	LOADM1(index)
 
-// func blockARM64(dig *digest, p []byte, m1 []uint32, cs [][5]uint32)
-TEXT ·blockARM64(SB), NOSPLIT, $64-80
-    MOVD    dig+0(FP), R8
-    MOVD    p_base+8(FP), R16
-    MOVD    p_len+16(FP), R10
+// func blockARM64(h []uint32, p []byte, m1 []uint32, cs [][5]uint32)
+TEXT ·blockARM64(SB), NOSPLIT, $80-96
+    MOVD    h_base+0(FP), R8
+    MOVD    p_base+24(FP), R16
+    MOVD    p_len+32(FP), R10
 
     LSR     $6, R10, R10
     LSL     $6, R10, R10

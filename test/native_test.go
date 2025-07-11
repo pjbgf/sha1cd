@@ -7,19 +7,25 @@ import (
 	"hash"
 	"os"
 	"testing"
+	_ "unsafe"
 
 	"github.com/pjbgf/sha1cd"
 	"github.com/pjbgf/sha1cd/cgo"
 	"github.com/pjbgf/sha1cd/ubc"
 )
 
+//go:linkname forceGeneric github.com/pjbgf/sha1cd.forceGeneric
+var forceGeneric bool
+
 func BenchmarkCalculateDvMask(b *testing.B) {
 	data := shattered1M1s[0]
 
+	forceGeneric = true
 	b.Run("generic", func(b *testing.B) {
 		b.ReportAllocs()
 		ubc.CalculateDvMaskGeneric(data)
 	})
+	forceGeneric = false
 	b.Run("native", func(b *testing.B) {
 		b.ReportAllocs()
 		ubc.CalculateDvMask(data)
@@ -61,29 +67,41 @@ func benchmarkContent(b *testing.B, n string, d hash.Hash, data []byte) {
 
 func BenchmarkHash8Bytes(b *testing.B) {
 	benchmarkSize(b, "sha1", sha1.New(), 8)
+	forceGeneric = false
 	benchmarkSize(b, "sha1cd_native", sha1cd.New(), 8)
-	benchmarkSize(b, "sha1cd_generic", sha1cd.NewGeneric(), 8)
+
+	forceGeneric = true
+	benchmarkSize(b, "sha1cd_generic", sha1cd.New(), 8)
 	benchmarkSize(b, "sha1cd_cgo", cgo.New(), 8)
 }
 
 func BenchmarkHash320Bytes(b *testing.B) {
 	benchmarkSize(b, "sha1", sha1.New(), 320)
+	forceGeneric = false
 	benchmarkSize(b, "sha1cd_native", sha1cd.New(), 320)
-	benchmarkSize(b, "sha1cd_generic", sha1cd.NewGeneric(), 320)
+
+	forceGeneric = true
+	benchmarkSize(b, "sha1cd_generic", sha1cd.New(), 320)
 	benchmarkSize(b, "sha1cd_cgo", cgo.New(), 320)
 }
 
 func BenchmarkHash1K(b *testing.B) {
 	benchmarkSize(b, "sha1", sha1.New(), 1024)
+	forceGeneric = false
 	benchmarkSize(b, "sha1cd_native", sha1cd.New(), 1024)
-	benchmarkSize(b, "sha1cd_generic", sha1cd.NewGeneric(), 1024)
+
+	forceGeneric = true
+	benchmarkSize(b, "sha1cd_generic", sha1cd.New(), 1024)
 	benchmarkSize(b, "sha1cd_cgo", cgo.New(), 1024)
 }
 
 func BenchmarkHash8K(b *testing.B) {
 	benchmarkSize(b, "sha1", sha1.New(), 8192)
+	forceGeneric = false
 	benchmarkSize(b, "sha1cd_native", sha1cd.New(), 8192)
-	benchmarkSize(b, "sha1cd_generic", sha1cd.NewGeneric(), 8192)
+
+	forceGeneric = true
+	benchmarkSize(b, "sha1cd_generic", sha1cd.New(), 8192)
 	benchmarkSize(b, "sha1cd_cgo", cgo.New(), 8192)
 }
 
@@ -92,19 +110,23 @@ func BenchmarkHashWithCollision(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
+	forceGeneric = false
 	benchmarkContent(b, "sha1cd_native", sha1cd.New(), shambles)
-	benchmarkContent(b, "sha1cd_generic", sha1cd.NewGeneric(), shambles)
+
+	forceGeneric = true
+	benchmarkContent(b, "sha1cd_generic", sha1cd.New(), shambles)
 	benchmarkContent(b, "sha1cd_cgo", cgo.New(), shambles)
 }
 
 func TestCollisionDetection(t *testing.T) {
 	hashers := []struct {
-		name   string
-		hasher sha1cd.CollisionResistantHash
+		name    string
+		hasher  sha1cd.CollisionResistantHash
+		generic bool
 	}{
 		{name: "sha1cd_cgo", hasher: cgo.New().(sha1cd.CollisionResistantHash)},
 		{name: "sha1cd_native", hasher: sha1cd.New().(sha1cd.CollisionResistantHash)},
-		{name: "sha1cd_generic", hasher: sha1cd.NewGeneric().(sha1cd.CollisionResistantHash)},
+		{name: "sha1cd_generic", hasher: sha1cd.New().(sha1cd.CollisionResistantHash), generic: true},
 	}
 
 	tests := []struct {
@@ -151,6 +173,8 @@ func TestCollisionDetection(t *testing.T) {
 				if err != nil {
 					t.Fatalf("unexpected error: %v", err)
 				}
+
+				forceGeneric = hasher.generic
 
 				d := hasher.hasher
 				d.Reset()

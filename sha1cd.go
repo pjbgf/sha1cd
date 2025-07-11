@@ -40,8 +40,7 @@ type digest struct {
 	len uint64
 
 	// col defines whether a collision has been found.
-	col       bool
-	blockFunc func(dig *digest, p []byte)
+	col bool
 }
 
 func (d *digest) MarshalBinary() ([]byte, error) {
@@ -128,21 +127,9 @@ func (d *digest) Reset() {
 // implements encoding.BinaryMarshaler and encoding.BinaryUnmarshaler to
 // marshal and unmarshal the internal state of the hash.
 func New() hash.Hash {
-	d := new(digest)
-
-	d.blockFunc = block
+	var d digest
 	d.Reset()
-	return d
-}
-
-// NewGeneric is equivalent to New but uses the Go generic implementation,
-// avoiding any processor-specific optimizations.
-func NewGeneric() hash.Hash {
-	d := new(digest)
-
-	d.blockFunc = blockGeneric
-	d.Reset()
-	return d
+	return &d
 }
 
 func (d *digest) Size() int { return Size }
@@ -160,14 +147,14 @@ func (d *digest) Write(p []byte) (nn int, err error) {
 		n := copy(d.x[d.nx:], p)
 		d.nx += n
 		if d.nx == shared.Chunk {
-			d.blockFunc(d, d.x[:])
+			block(d, d.x[:])
 			d.nx = 0
 		}
 		p = p[n:]
 	}
 	if len(p) >= shared.Chunk {
 		n := len(p) &^ (shared.Chunk - 1)
-		d.blockFunc(d, p[:n])
+		block(d, p[:n])
 		p = p[n:]
 	}
 	if len(p) > 0 {
@@ -218,7 +205,8 @@ func (d *digest) checkSum() [Size]byte {
 
 // Sum returns the SHA-1 checksum of the data.
 func Sum(data []byte) ([Size]byte, bool) {
-	d := New().(*digest)
+	var d digest
+	d.Reset()
 	d.Write(data)
 	return d.checkSum(), d.col
 }

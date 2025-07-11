@@ -15,6 +15,8 @@ import (
 	"github.com/pjbgf/sha1cd/ubc"
 )
 
+var forceGeneric bool
+
 // blockGeneric is a portable, pure Go version of the SHA-1 block step.
 // It's used by sha1block_generic.go and tests.
 func blockGeneric(dig *digest, p []byte) {
@@ -125,7 +127,7 @@ func blockGeneric(dig *digest, p []byte) {
 		}
 
 		if hi == 1 {
-			col := checkCollision(m1, cs, [shared.WordBuffers]uint32{h0, h1, h2, h3, h4})
+			col := checkCollision(m1, cs, []uint32{h0, h1, h2, h3, h4})
 			if col {
 				dig.col = true
 				hi++
@@ -142,7 +144,7 @@ func blockGeneric(dig *digest, p []byte) {
 func checkCollision(
 	m1 [shared.Rounds]uint32,
 	cs [shared.PreStepState][shared.WordBuffers]uint32,
-	state [shared.WordBuffers]uint32) bool {
+	state []uint32) bool {
 
 	if mask := ubc.CalculateDvMask(m1); mask != 0 {
 		dvs := ubc.SHA1_dvs()
@@ -179,7 +181,11 @@ func checkCollision(
 }
 
 func hasCollided(step uint32, m1, dm [shared.Rounds]uint32,
-	state [shared.WordBuffers]uint32, h [shared.WordBuffers]uint32) bool {
+	state [shared.WordBuffers]uint32, h []uint32) bool {
+	if len(h) < shared.WordBuffers {
+		return false
+	}
+
 	// Intermediary Hash Value.
 	ihv := [shared.WordBuffers]uint32{}
 
