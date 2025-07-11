@@ -15,6 +15,8 @@ import (
 	"github.com/pjbgf/sha1cd/ubc"
 )
 
+var forceGeneric bool
+
 // blockGeneric is a portable, pure Go version of the SHA-1 block step.
 // It's used by sha1block_generic.go and tests.
 func blockGeneric(dig *digest, p []byte) {

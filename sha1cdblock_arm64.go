@@ -14,6 +14,11 @@ import (
 func blockARM64(h []uint32, p []byte, m1 []uint32, cs [][5]uint32)
 
 func block(dig *digest, p []byte) {
+	if forceGeneric {
+		blockGeneric(dig, p)
+		return
+	}
+
 	m1 := [shared.Rounds]uint32{}
 	cs := [shared.PreStepState][shared.WordBuffers]uint32{}
 
