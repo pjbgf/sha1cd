@@ -51,7 +51,7 @@
 
 #define LOADCS(a, b, c, d, e, index) \
 	MOVL R15, 64(SP); \
-	MOVQ cs_base+56(FP), R15; \
+	MOVQ cs_base+72(FP), R15; \
 	MOVL a, ((index*20))(R15); \
 	MOVL b, ((index*20)+4)(R15); \
 	MOVL c, ((index*20)+8)(R15); \
@@ -73,7 +73,7 @@
 // LOADM1 stores message word to m1 array.
 #define LOADM1(index) \
 	MOVL R15, 72(SP); \
-	MOVQ m1_base+32(FP), R15; \
+	MOVQ m1_base+48(FP), R15; \
 	MOVL ((index&0xf)*4)(SP), DI; \
 	MOVL DI, (index*4)(R15); \
 	MOVL 72(SP), R15
@@ -108,11 +108,11 @@
 	MIX(a, b, c, d, e, RoundConst3); \
 	LOADM1(index)
 
-// func blockAMD64(dig *digest, p []byte, m1 []uint32, cs [][5]uint32)
-TEXT ·blockAMD64(SB), NOSPLIT, $80-80
-	MOVQ dig+0(FP), R8
-	MOVQ p_base+8(FP), SI
-	MOVQ p_len+16(FP), DX
+// func blockAMD64(h []uint32, p []byte, m1 []uint32, cs [][5]uint32)
+TEXT ·blockAMD64(SB), NOSPLIT, $80-96
+	MOVQ h_base+0(FP), R8
+	MOVQ p_base+24(FP), SI
+	MOVQ p_len+32(FP), DX
 	
 	SHRQ $6, DX
 	SHLQ $6, DX
@@ -244,7 +244,7 @@ loop:
 	JMP loop
 
 end:
-	MOVQ dig+0(FP), R8
+	MOVQ h_base+0(FP), R8
 	MOVL R9, (R8)
 	MOVL R10, 4(R8)
 	MOVL R11, 8(R8)
