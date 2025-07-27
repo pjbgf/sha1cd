@@ -127,7 +127,7 @@ func blockGeneric(dig *digest, p []byte) {
 		}
 
 		if hi == 1 {
-			col := checkCollision(m1, cs, []uint32{h0, h1, h2, h3, h4})
+			col := checkCollision(m1, cs, [shared.WordBuffers]uint32{h0, h1, h2, h3, h4})
 			if col {
 				dig.col = true
 				hi++
@@ -141,11 +141,12 @@ func blockGeneric(dig *digest, p []byte) {
 	dig.h[0], dig.h[1], dig.h[2], dig.h[3], dig.h[4] = h0, h1, h2, h3, h4
 }
 
+//go:noinline
 func checkCollision(
 	m1 [shared.Rounds]uint32,
 	cs [shared.PreStepState][shared.WordBuffers]uint32,
-	state []uint32) bool {
-
+	h [shared.WordBuffers]uint32,
+) bool {
 	if mask := ubc.CalculateDvMask(m1); mask != 0 {
 		dvs := ubc.SHA1_dvs()
 
@@ -169,7 +170,7 @@ func checkCollision(
 					// ubc's DM prior to the SHA recompression step.
 					m1, dvs[i].Dm,
 					csState,
-					state)
+					h)
 
 				if col {
 					return true
@@ -180,12 +181,9 @@ func checkCollision(
 	return false
 }
 
+//go:nosplit
 func hasCollided(step uint32, m1, dm [shared.Rounds]uint32,
-	state [shared.WordBuffers]uint32, h []uint32) bool {
-	if len(h) < shared.WordBuffers {
-		return false
-	}
-
+	state [shared.WordBuffers]uint32, h [shared.WordBuffers]uint32) bool {
 	// Intermediary Hash Value.
 	ihv := [shared.WordBuffers]uint32{}
 
