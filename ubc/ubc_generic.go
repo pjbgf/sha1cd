@@ -21,10 +21,12 @@ type DvInfo struct {
 	Dm [80]uint32
 }
 
-// CalculateDvMask takes as input an expanded message block and verifies the unavoidable bitconditions
-// for all listed DVs. It returns a dvmask where each bit belonging to a DV is set if all
-// unavoidable bitconditions for that DV have been met.
-// Thus, one needs to do the recompression check for each DV that has its bit set.
+// CalculateDvMaskGeneric takes as input an expanded message block and
+// verifies the unavoidable bitconditions for all listed DVs. It returns
+// a dvmask where each bit belonging to a DV is set if all unavoidable
+// bitconditions for that DV have been met.
+//
+//go:nosplit
 func CalculateDvMaskGeneric(W [80]uint32) uint32 {
 	mask := uint32(0xFFFFFFFF)
 	mask &= (((((W[44] ^ W[45]) >> 29) & 1) - 1) | ^(DV_I_48_0_bit | DV_I_51_0_bit | DV_I_52_0_bit | DV_II_45_0_bit | DV_II_46_0_bit | DV_II_50_0_bit | DV_II_51_0_bit))
@@ -363,6 +365,7 @@ func not(x uint32) uint32 {
 	return 0
 }
 
+//go:nosplit
 func SHA1_dvs() []DvInfo {
 	return sha1_dvs
 }
