@@ -20,9 +20,9 @@ func init() {
 }
 
 func New() hash.Hash {
-	d := new(digest)
+	var d digest
 	d.Reset()
-	return d
+	return &d
 }
 
 type digest struct {
@@ -60,7 +60,8 @@ func (d *digest) Size() int { return Size }
 func (d *digest) BlockSize() int { return BlockSize }
 
 func Sum(data []byte) ([]byte, bool) {
-	d := New().(*digest)
+	var d digest
+	d.Reset()
 	d.Write(data)
 
 	h, c := d.sum()

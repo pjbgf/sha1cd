@@ -58,66 +58,76 @@ var golden = []sha1Test{
 }
 
 func TestGolden(t *testing.T) {
-	for i := 0; i < len(golden); i++ {
-		g := golden[i]
-		v, _ := Sum([]byte(g.in))
-		s := fmt.Sprintf("%x", v)
-		if s != g.out {
-			t.Fatalf("Sum function: sha1(%s) = %s want %s", g.in, s, g.out)
-		}
-		c := New()
-		for j := 0; j < 3; j++ {
-			var sum []byte
-			switch j {
-			case 0, 1:
-				io.WriteString(c, g.in)
-				sum = c.Sum(nil)
-			case 2:
-				io.WriteString(c, g.in[0:len(g.in)/2])
-				c.Sum(nil)
-				io.WriteString(c, g.in[len(g.in)/2:])
-				sum = c.Sum(nil)
+	for _, generic := range []bool{false, true} {
+		forceGeneric = generic
+		t.Run(fmt.Sprintf("generic %v", generic), func(t *testing.T) {
+			for i := 0; i < len(golden); i++ {
+				g := golden[i]
+				v, _ := Sum([]byte(g.in))
+				s := fmt.Sprintf("%x", v)
+				if s != g.out {
+					t.Fatalf("Sum function: sha1(%s) = %s want %s", g.in, s, g.out)
+				}
+				c := New()
+				for j := 0; j < 3; j++ {
+					var sum []byte
+					switch j {
+					case 0, 1:
+						io.WriteString(c, g.in)
+						sum = c.Sum(nil)
+					case 2:
+						io.WriteString(c, g.in[0:len(g.in)/2])
+						c.Sum(nil)
+						io.WriteString(c, g.in[len(g.in)/2:])
+						sum = c.Sum(nil)
+					}
+					s := fmt.Sprintf("%x", sum)
+					if s != g.out {
+						t.Fatalf("sha1[%d](%s) = %s want %s", j, g.in, s, g.out)
+					}
+					c.Reset()
+				}
 			}
-			s := fmt.Sprintf("%x", sum)
-			if s != g.out {
-				t.Fatalf("sha1[%d](%s) = %s want %s", j, g.in, s, g.out)
-			}
-			c.Reset()
-		}
+		})
 	}
 }
 
 func TestGoldenMarshal(t *testing.T) {
-	h := New().(*digest)
-	h2 := New().(*digest)
-	for _, g := range golden {
-		h.Reset()
-		h2.Reset()
+	for _, generic := range []bool{false, true} {
+		forceGeneric = generic
+		t.Run(fmt.Sprintf("generic %v", generic), func(t *testing.T) {
+			h := New().(*digest)
+			h2 := New().(*digest)
+			for _, g := range golden {
+				h.Reset()
+				h2.Reset()
 
-		io.WriteString(h, g.in[:len(g.in)/2])
+				io.WriteString(h, g.in[:len(g.in)/2])
 
-		state, err := h.MarshalBinary()
-		if err != nil {
-			t.Errorf("could not marshal: %v", err)
-			continue
-		}
+				state, err := h.MarshalBinary()
+				if err != nil {
+					t.Errorf("could not marshal: %v", err)
+					continue
+				}
 
-		if string(state) != g.halfState {
-			t.Errorf("sha1(%q) state = %+q, want %+q", g.in, state, g.halfState)
-			continue
-		}
+				if string(state) != g.halfState {
+					t.Errorf("sha1(%q) state = %+q, want %+q", g.in, state, g.halfState)
+					continue
+				}
 
-		if err := h2.UnmarshalBinary(state); err != nil {
-			t.Errorf("could not unmarshal: %v", err)
-			continue
-		}
+				if err := h2.UnmarshalBinary(state); err != nil {
+					t.Errorf("could not unmarshal: %v", err)
+					continue
+				}
 
-		io.WriteString(h, g.in[len(g.in)/2:])
-		io.WriteString(h2, g.in[len(g.in)/2:])
+				io.WriteString(h, g.in[len(g.in)/2:])
+				io.WriteString(h2, g.in[len(g.in)/2:])
 
-		if actual, actual2 := h.Sum(nil), h2.Sum(nil); !bytes.Equal(actual, actual2) {
-			t.Errorf("sha1(%q) = 0x%x != marshaled 0x%x", g.in, actual, actual2)
-		}
+				if actual, actual2 := h.Sum(nil), h2.Sum(nil); !bytes.Equal(actual, actual2) {
+					t.Errorf("sha1(%q) = 0x%x != marshaled 0x%x", g.in, actual, actual2)
+				}
+			}
+		})
 	}
 }
 
@@ -172,23 +182,28 @@ func safeSum(h hash.Hash) (sum []byte, err error) {
 }
 
 func TestLargeHashes(t *testing.T) {
-	for i, test := range largeUnmarshalTests {
+	for _, generic := range []bool{false, true} {
+		forceGeneric = generic
+		t.Run(fmt.Sprintf("generic %v", generic), func(t *testing.T) {
+			for i, test := range largeUnmarshalTests {
 
-		h := New().(*digest)
-		if err := h.UnmarshalBinary([]byte(test.state)); err != nil {
-			t.Errorf("test %d could not unmarshal: %v", i, err)
-			continue
-		}
+				h := New().(*digest)
+				if err := h.UnmarshalBinary([]byte(test.state)); err != nil {
+					t.Errorf("test %d could not unmarshal: %v", i, err)
+					continue
+				}
 
-		sum, err := safeSum(h)
-		if err != nil {
-			t.Errorf("test %d could not sum: %v", i, err)
-			continue
-		}
+				sum, err := safeSum(h)
+				if err != nil {
+					t.Errorf("test %d could not sum: %v", i, err)
+					continue
+				}
 
-		if fmt.Sprintf("%x", sum) != test.sum {
-			t.Errorf("test %d sum mismatch: expect %s got %x", i, test.sum, sum)
-		}
+				if fmt.Sprintf("%x", sum) != test.sum {
+					t.Errorf("test %d sum mismatch: expect %s got %x", i, test.sum, sum)
+				}
+			}
+		})
 	}
 }
 
