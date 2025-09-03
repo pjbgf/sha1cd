@@ -232,3 +232,67 @@ func testAllocations(h hash.Hash, t *testing.T) {
 		t.Errorf("allocs = %d, want < 1", n)
 	}
 }
+
+func TestRectifyCompressionState(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		m1   [80]uint32
+		cs   *[3][5]uint32
+		want *[3][5]uint32
+	}{
+		{
+			m1: func() [80]uint32 {
+				var m1 [80]uint32
+				for i := range 80 {
+					m1[i] = uint32(i + 1)
+				}
+				return m1
+			}(),
+			cs: &[3][5]uint32{
+				{0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0},
+				{0x12345678, 0x9ABCDEF0, 0x11111111, 0x22222222, 0x33333333},
+				{0xAAAAAAAA, 0xBBBBBBBB, 0xCCCCCCCC, 0xDDDDDDDD, 0xEEEEEEEE},
+			},
+			want: &[3][5]uint32{
+				{0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0},
+				{0x24AD25B3, 0x1B09D17A, 0x048D159E, 0x26AF37BC, 0x11111111},
+				{0xB951B104, 0xAAAAAAAA, 0xEEEEEEEE, 0xCCCCCCCC, 0xDDDDDDDD},
+			},
+		},
+		{
+			m1: [80]uint32{},
+			cs: &[3][5]uint32{
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+			},
+			want: &[3][5]uint32{
+				{0, 0, 0, 0, 0},
+				{0x7293586D, 0x8F1BBCDC, 0, 0, 0},
+				{0xCA62C1D6, 0, 0, 0, 0},
+			},
+		},
+		{
+			m1:   [80]uint32{},
+			cs:   nil,
+			want: nil,
+		},
+	}
+
+	for i, tc := range tests {
+		t.Run(fmt.Sprintf("tc#%d", i), func(t *testing.T) {
+			t.Parallel()
+
+			rectifyCompressionState(tc.m1, tc.cs)
+
+			if tc.want == nil {
+				if tc.cs != nil {
+					t.Errorf("cs should be nil, %v", tc.cs)
+				}
+			} else if *tc.cs != *tc.want {
+				t.Errorf("rectifyCompressionState() = %v, want %v", tc.cs, tc.want)
+			}
+		})
+	}
+}
