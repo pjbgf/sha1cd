@@ -58,66 +58,76 @@ var golden = []sha1Test{
 }
 
 func TestGolden(t *testing.T) {
-	for i := 0; i < len(golden); i++ {
-		g := golden[i]
-		v, _ := Sum([]byte(g.in))
-		s := fmt.Sprintf("%x", v)
-		if s != g.out {
-			t.Fatalf("Sum function: sha1(%s) = %s want %s", g.in, s, g.out)
-		}
-		c := New()
-		for j := 0; j < 3; j++ {
-			var sum []byte
-			switch j {
-			case 0, 1:
-				io.WriteString(c, g.in)
-				sum = c.Sum(nil)
-			case 2:
-				io.WriteString(c, g.in[0:len(g.in)/2])
-				c.Sum(nil)
-				io.WriteString(c, g.in[len(g.in)/2:])
-				sum = c.Sum(nil)
+	for _, generic := range []bool{false, true} {
+		forceGeneric = generic
+		t.Run(fmt.Sprintf("generic %v", generic), func(t *testing.T) {
+			for i := 0; i < len(golden); i++ {
+				g := golden[i]
+				v, _ := Sum([]byte(g.in))
+				s := fmt.Sprintf("%x", v)
+				if s != g.out {
+					t.Fatalf("Sum function: sha1(%s) = %s want %s", g.in, s, g.out)
+				}
+				c := New()
+				for j := 0; j < 3; j++ {
+					var sum []byte
+					switch j {
+					case 0, 1:
+						io.WriteString(c, g.in)
+						sum = c.Sum(nil)
+					case 2:
+						io.WriteString(c, g.in[0:len(g.in)/2])
+						c.Sum(nil)
+						io.WriteString(c, g.in[len(g.in)/2:])
+						sum = c.Sum(nil)
+					}
+					s := fmt.Sprintf("%x", sum)
+					if s != g.out {
+						t.Fatalf("sha1[%d](%s) = %s want %s", j, g.in, s, g.out)
+					}
+					c.Reset()
+				}
 			}
-			s := fmt.Sprintf("%x", sum)
-			if s != g.out {
-				t.Fatalf("sha1[%d](%s) = %s want %s", j, g.in, s, g.out)
-			}
-			c.Reset()
-		}
+		})
 	}
 }
 
 func TestGoldenMarshal(t *testing.T) {
-	h := New().(*digest)
-	h2 := New().(*digest)
-	for _, g := range golden {
-		h.Reset()
-		h2.Reset()
+	for _, generic := range []bool{false, true} {
+		forceGeneric = generic
+		t.Run(fmt.Sprintf("generic %v", generic), func(t *testing.T) {
+			h := New().(*digest)
+			h2 := New().(*digest)
+			for _, g := range golden {
+				h.Reset()
+				h2.Reset()
 
-		io.WriteString(h, g.in[:len(g.in)/2])
+				io.WriteString(h, g.in[:len(g.in)/2])
 
-		state, err := h.MarshalBinary()
-		if err != nil {
-			t.Errorf("could not marshal: %v", err)
-			continue
-		}
+				state, err := h.MarshalBinary()
+				if err != nil {
+					t.Errorf("could not marshal: %v", err)
+					continue
+				}
 
-		if string(state) != g.halfState {
-			t.Errorf("sha1(%q) state = %+q, want %+q", g.in, state, g.halfState)
-			continue
-		}
+				if string(state) != g.halfState {
+					t.Errorf("sha1(%q) state = %+q, want %+q", g.in, state, g.halfState)
+					continue
+				}
 
-		if err := h2.UnmarshalBinary(state); err != nil {
-			t.Errorf("could not unmarshal: %v", err)
-			continue
-		}
+				if err := h2.UnmarshalBinary(state); err != nil {
+					t.Errorf("could not unmarshal: %v", err)
+					continue
+				}
 
-		io.WriteString(h, g.in[len(g.in)/2:])
-		io.WriteString(h2, g.in[len(g.in)/2:])
+				io.WriteString(h, g.in[len(g.in)/2:])
+				io.WriteString(h2, g.in[len(g.in)/2:])
 
-		if actual, actual2 := h.Sum(nil), h2.Sum(nil); !bytes.Equal(actual, actual2) {
-			t.Errorf("sha1(%q) = 0x%x != marshaled 0x%x", g.in, actual, actual2)
-		}
+				if actual, actual2 := h.Sum(nil), h2.Sum(nil); !bytes.Equal(actual, actual2) {
+					t.Errorf("sha1(%q) = 0x%x != marshaled 0x%x", g.in, actual, actual2)
+				}
+			}
+		})
 	}
 }
 
@@ -172,23 +182,28 @@ func safeSum(h hash.Hash) (sum []byte, err error) {
 }
 
 func TestLargeHashes(t *testing.T) {
-	for i, test := range largeUnmarshalTests {
+	for _, generic := range []bool{false, true} {
+		forceGeneric = generic
+		t.Run(fmt.Sprintf("generic %v", generic), func(t *testing.T) {
+			for i, test := range largeUnmarshalTests {
 
-		h := New().(*digest)
-		if err := h.UnmarshalBinary([]byte(test.state)); err != nil {
-			t.Errorf("test %d could not unmarshal: %v", i, err)
-			continue
-		}
+				h := New().(*digest)
+				if err := h.UnmarshalBinary([]byte(test.state)); err != nil {
+					t.Errorf("test %d could not unmarshal: %v", i, err)
+					continue
+				}
 
-		sum, err := safeSum(h)
-		if err != nil {
-			t.Errorf("test %d could not sum: %v", i, err)
-			continue
-		}
+				sum, err := safeSum(h)
+				if err != nil {
+					t.Errorf("test %d could not sum: %v", i, err)
+					continue
+				}
 
-		if fmt.Sprintf("%x", sum) != test.sum {
-			t.Errorf("test %d sum mismatch: expect %s got %x", i, test.sum, sum)
-		}
+				if fmt.Sprintf("%x", sum) != test.sum {
+					t.Errorf("test %d sum mismatch: expect %s got %x", i, test.sum, sum)
+				}
+			}
+		})
 	}
 }
 
@@ -215,5 +230,69 @@ func testAllocations(h hash.Hash, t *testing.T) {
 
 	if n > 0 {
 		t.Errorf("allocs = %d, want < 1", n)
+	}
+}
+
+func TestRectifyCompressionState(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		m1   [80]uint32
+		cs   *[3][5]uint32
+		want *[3][5]uint32
+	}{
+		{
+			m1: func() [80]uint32 {
+				var m1 [80]uint32
+				for i := range 80 {
+					m1[i] = uint32(i + 1)
+				}
+				return m1
+			}(),
+			cs: &[3][5]uint32{
+				{0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0},
+				{0x12345678, 0x9ABCDEF0, 0x11111111, 0x22222222, 0x33333333},
+				{0xAAAAAAAA, 0xBBBBBBBB, 0xCCCCCCCC, 0xDDDDDDDD, 0xEEEEEEEE},
+			},
+			want: &[3][5]uint32{
+				{0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0},
+				{0x24AD25B3, 0x1B09D17A, 0x048D159E, 0x26AF37BC, 0x11111111},
+				{0xB951B104, 0xAAAAAAAA, 0xEEEEEEEE, 0xCCCCCCCC, 0xDDDDDDDD},
+			},
+		},
+		{
+			m1: [80]uint32{},
+			cs: &[3][5]uint32{
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+			},
+			want: &[3][5]uint32{
+				{0, 0, 0, 0, 0},
+				{0x7293586D, 0x8F1BBCDC, 0, 0, 0},
+				{0xCA62C1D6, 0, 0, 0, 0},
+			},
+		},
+		{
+			m1:   [80]uint32{},
+			cs:   nil,
+			want: nil,
+		},
+	}
+
+	for i, tc := range tests {
+		t.Run(fmt.Sprintf("tc#%d", i), func(t *testing.T) {
+			t.Parallel()
+
+			rectifyCompressionState(tc.m1, tc.cs)
+
+			if tc.want == nil {
+				if tc.cs != nil {
+					t.Errorf("cs should be nil, %v", tc.cs)
+				}
+			} else if *tc.cs != *tc.want {
+				t.Errorf("rectifyCompressionState() = %v, want %v", tc.cs, tc.want)
+			}
+		})
 	}
 }

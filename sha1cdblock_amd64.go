@@ -23,13 +23,13 @@ func block(dig *digest, p []byte) {
 	cs := [shared.PreStepState][shared.WordBuffers]uint32{}
 
 	for len(p) >= shared.Chunk {
-		// Only send a block to be processed, as the collission detection
-		// works on a block by block basis.
+		// The assembly code only supports processing a block at a time,
+		// so adjust the chunk accordingly.
 		chunk := p[:shared.Chunk]
 
 		blockAMD64(dig.h[:], chunk, m1[:], cs[:])
 
-		col := checkCollision(m1, cs, dig.h[:])
+		col := checkCollision(m1, cs, dig.h)
 		if col {
 			dig.col = true
 
