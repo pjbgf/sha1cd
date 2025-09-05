@@ -98,7 +98,7 @@ func (d *digest) UnmarshalBinary(b []byte) error {
 
 func consumeUint64(b []byte) ([]byte, uint64) {
 	_ = b[7]
-	x := uint64(b[7]) | uint64(b[6])<<8 | uint64(b[shared.WordBuffers])<<16 | uint64(b[4])<<24 |
+	x := uint64(b[7]) | uint64(b[6])<<8 | uint64(b[5])<<16 | uint64(b[4])<<24 |
 		uint64(b[3])<<32 | uint64(b[2])<<40 | uint64(b[1])<<48 | uint64(b[0])<<56
 	return b[8:], x
 }

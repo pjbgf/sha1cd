@@ -4,8 +4,17 @@
 package sha1cd
 
 import (
+	"runtime"
+
+	"github.com/klauspost/cpuid/v2"
 	shared "github.com/pjbgf/sha1cd/internal"
 )
+
+var hasSHANI = (runtime.GOARCH == "amd64" &&
+	cpuid.CPU.Supports(cpuid.AVX) &&
+	cpuid.CPU.Supports(cpuid.SHA) &&
+	cpuid.CPU.Supports(cpuid.SSE3) &&
+	cpuid.CPU.Supports(cpuid.SSE4))
 
 // blockAMD64 hashes the message p into the current state in h.
 // Both m1 and cs are used to store intermediate results which are used by the collision detection logic.
@@ -14,7 +23,7 @@ import (
 func blockAMD64(h []uint32, p []byte, m1 []uint32, cs [][5]uint32)
 
 func block(dig *digest, p []byte) {
-	if forceGeneric {
+	if forceGeneric || !hasSHANI {
 		blockGeneric(dig, p)
 		return
 	}
@@ -28,6 +37,7 @@ func block(dig *digest, p []byte) {
 		chunk := p[:shared.Chunk]
 
 		blockAMD64(dig.h[:], chunk, m1[:], cs[:])
+		rectifyCompressionState(m1, &cs)
 
 		col := checkCollision(m1, cs, dig.h)
 		if col {
