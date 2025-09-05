@@ -272,13 +272,13 @@ func hasCollided(step uint32, m1, dm [shared.Rounds]uint32,
 }
 
 // rectifyCompressionState fixes the compression state when using the
-// SIMD implementation for ARM64.
+// SIMD implementations.
 //
-// Due to the way that ARM64 hardware acceleration works, the rounds
+// Due to the way that hardware acceleration works, the rounds
 // are executed 4 at a time. Therefore, the state for cs58 and cs65
-// cannot be directly through that logic. The states returned are for
-// cs56 and cs64. This function updates indexes 1 and 2 of cs to contain
-// the respective CS values for rounds 58 and 65.
+// are not available directly through the assembly logic. The states
+// returned are for cs56 and cs64. This function updates indexes 1 and 2
+// of cs to contain the respective CS values for rounds 58 and 65.
 //
 //go:nosplit
 func rectifyCompressionState(

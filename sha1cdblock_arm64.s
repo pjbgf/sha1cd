@@ -2,9 +2,15 @@
 
 #include "textflag.h"
 
+// License information for the original SHA1 arm64 implemention:
+// Copyright 2017 The Go Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found at:
+// 	- https://github.com/golang/go/blob/master/LICENSE
+//
 // Reference implementations:
-// https://github.com/noloader/SHA-Intrinsics/blob/master/sha1-arm.c
-// https://github.com/golang/go/blob/master/src/crypto/sha1/sha1block_arm64.s
+// 	- https://github.com/noloader/SHA-Intrinsics/blob/master/sha1-arm.c
+// 	- https://github.com/golang/go/blob/master/src/crypto/sha1/sha1block_arm64.s
 
 #define HASHUPDATECHOOSE \
 	SHA1C	V16.S4, V1, V2 \
