@@ -22,7 +22,7 @@ func BenchmarkCalculateDvMask(b *testing.B) {
 
 	b.Run("go", func(b *testing.B) {
 		b.ReportAllocs()
-		ubc.CalculateDvMask(data)
+		ubc.CalculateDvMask(&data)
 	})
 	b.Run("cgo", func(b *testing.B) {
 		b.ReportAllocs()
@@ -191,7 +191,7 @@ func TestCalculateDvMask_Shattered1(t *testing.T) {
 		t.Run(fmt.Sprintf("m1[%d]", i), func(t *testing.T) {
 			want := cgo.CalculateDvMask(shattered1M1s[i])
 
-			got := ubc.CalculateDvMask(shattered1M1s[i])
+			got := ubc.CalculateDvMask(&shattered1M1s[i])
 			if want != got {
 				t.Fatalf("[go] dvmask: %d\nwant %d", got, want)
 			}

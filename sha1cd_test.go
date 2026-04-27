@@ -284,7 +284,7 @@ func TestRectifyCompressionState(t *testing.T) {
 		t.Run(fmt.Sprintf("tc#%d", i), func(t *testing.T) {
 			t.Parallel()
 
-			rectifyCompressionState(tc.m1, tc.cs)
+			rectifyCompressionState(&tc.m1, tc.cs)
 
 			if tc.want == nil {
 				if tc.cs != nil {
