@@ -38,4 +38,7 @@ jobs:
         env:
           # Each fuzz target is run for this long in turn.
           FUZZ_TIME: 20m
+          # The race runtime perturbs the state the assembly is entered with,
+          # which is how the uninitialised R16 on arm64 first surfaced.
+          FUZZ_FLAGS: -race
         run: make fuzz

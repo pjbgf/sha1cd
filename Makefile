@@ -1,4 +1,5 @@
 FUZZ_TIME ?= 1m
+FUZZ_FLAGS ?=
 
 # The fuzz targets of each package, along with the tags needed to build them.
 FUZZ_TARGETS = ./test/:gofuzz .:sha1cd_asmtest
@@ -21,7 +22,7 @@ fuzz:
 		pkg="$${entry%%:*}"; tags="$${entry##*:}"; \
 		for target in $$(go test -tags "$$tags" -list '^Fuzz' "$$pkg" | grep '^Fuzz' || true); do \
 			echo "fuzzing $$target in $$pkg for $(FUZZ_TIME)"; \
-			go test -tags "$$tags" -run '^$$' -fuzz "^$$target"'$$' \
+			go test $(FUZZ_FLAGS) -tags "$$tags" -run '^$$' -fuzz "^$$target"'$$' \
 				-fuzztime=$(FUZZ_TIME) "$$pkg"; \
 		done; \
 	done
