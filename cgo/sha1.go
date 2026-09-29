@@ -25,23 +25,22 @@ type digest struct {
 	h   [Size]byte
 }
 
+// sum finalises ctx in place. No further writes are possible afterwards.
 func (d *digest) sum() ([Size]byte, bool) {
 	c := C.SHA1DCFinal((*C.uchar)(unsafe.Pointer(&d.h[0])), &d.ctx)
-	if c != 0 {
-		return d.h, true
-	}
-
-	return d.h, false
+	return d.h, c != 0
 }
 
 func (d *digest) Sum(in []byte) []byte {
-	d0 := *d // use a copy of d to avoid race conditions.
-	h, _ := d0.CollisionResistantSum(in)
+	h, _ := d.CollisionResistantSum(in)
 	return h
 }
 
 func (d *digest) CollisionResistantSum(in []byte) ([]byte, bool) {
-	d0 := *d // use a copy of d to avoid race conditions.
+	// SHA1DCFinal consumes the context it is given, so sum a copy. That
+	// leaves the caller able to keep writing, and lets several goroutines
+	// sum the same digest at once.
+	d0 := *d
 	h, c := d0.sum()
 	return append(in, h[:]...), c
 }

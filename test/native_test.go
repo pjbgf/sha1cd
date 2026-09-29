@@ -6,8 +6,10 @@ import (
 	"encoding/hex"
 	"fmt"
 	"hash"
+	"math/bits"
 	"math/rand"
 	"os"
+	"sync"
 	"testing"
 	_ "unsafe"
 
@@ -33,7 +35,7 @@ func BenchmarkCalculateDvMask(b *testing.B) {
 	b.Run("cgo", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
-			benchmarkMask = cgo.CalculateDvMask(data)
+			benchmarkMask = cgo.CalculateDvMask(&data)
 		}
 	})
 }
@@ -254,7 +256,7 @@ func TestCollisionDetection(t *testing.T) {
 func TestCalculateDvMask_Shattered1(t *testing.T) {
 	for i := range shattered1M1s {
 		t.Run(fmt.Sprintf("m1[%d]", i), func(t *testing.T) {
-			want := cgo.CalculateDvMask(shattered1M1s[i])
+			want := cgo.CalculateDvMask(&shattered1M1s[i])
 
 			got := ubc.CalculateDvMask(&shattered1M1s[i])
 			if want != got {
@@ -279,7 +281,7 @@ func TestCalculateDvMask_Mutated(t *testing.T) {
 			w := shattered1M1s[i]
 			w[rng.Intn(len(w))] ^= 1 << uint(rng.Intn(32))
 
-			want := cgo.CalculateDvMask(w)
+			want := cgo.CalculateDvMask(&w)
 			if got := ubc.CalculateDvMask(&w); got != want {
 				t.Fatalf("m1[%d] mutation %d\n go dvmask: %d\ncgo dvmask: %d", i, j, got, want)
 			}
@@ -315,5 +317,141 @@ func TestRandomFragmentedHashes(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+// Check collision handling across block-aligned write boundaries and with a suffix.
+func TestCollisionWriteBoundaries(t *testing.T) {
+	previous := forceGeneric
+	defer func() { forceGeneric = previous }()
+	for _, name := range []string{"sha-mbles-1.bin", "sha-mbles-2.bin", "shattered-1.pdf", "shattered-2.pdf"} {
+		data, err := os.ReadFile("testdata/files/" + name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		suffix := make([]byte, 8*sha1cd.BlockSize+57)
+		rand.New(rand.NewSource(3)).Read(suffix)
+		data = append(data, suffix...)
+		forceGeneric = true
+		want, wantCollision := sha1cd.Sum(data)
+		if !wantCollision {
+			t.Fatalf("%s: generic did not detect collision", name)
+		}
+		forceGeneric = false
+		for prefix := 0; prefix < 8*sha1cd.BlockSize; prefix += sha1cd.BlockSize {
+			d := sha1cd.New().(sha1cd.CollisionResistantHash)
+			d.Write(data[:prefix])
+			d.Write(data[prefix:])
+			got, collision := d.CollisionResistantSum(nil)
+			if !collision || !bytes.Equal(got, want[:]) {
+				t.Fatalf("%s prefix %d: got %x collision=%v, want %x", name, prefix, got, collision, want)
+			}
+		}
+	}
+}
+
+func TestSumPreservesState(t *testing.T) {
+	for _, newHash := range []func() hash.Hash{sha1cd.New, cgo.New} {
+		d := newHash()
+		d.Write([]byte("prefix"))
+		first := d.Sum(nil)
+		if !bytes.Equal(first, d.Sum(nil)) {
+			t.Fatal("repeated Sum changed digest")
+		}
+		d.Write([]byte("suffix"))
+		want := sha1.Sum([]byte("prefixsuffix"))
+		if got := d.Sum(nil); !bytes.Equal(got, want[:]) {
+			t.Fatalf("Sum changed state: got %x, want %x", got, want)
+		}
+	}
+}
+
+// Sum must leave the digest untouched, so several goroutines can sum the same
+// hash at once. The generic implementation and the cgo wrapper both have to
+// hold to that, as crypto/sha1 does.
+func TestConcurrentSum(t *testing.T) {
+	t.Parallel()
+
+	for _, impl := range []struct {
+		name string
+		new  func() hash.Hash
+	}{
+		{"sha1cd", sha1cd.New},
+		{"cgo", cgo.New},
+	} {
+		t.Run(impl.name, func(t *testing.T) {
+			t.Parallel()
+
+			d := impl.new()
+			d.Write([]byte("prefix"))
+			want := sha1.Sum([]byte("prefix"))
+
+			var wg sync.WaitGroup
+			for i := 0; i < 8; i++ {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					for j := 0; j < 200; j++ {
+						if got := d.Sum(nil); !bytes.Equal(got, want[:]) {
+							t.Errorf("got %x, want %x", got, want)
+							return
+						}
+					}
+				}()
+			}
+			wg.Wait()
+		})
+	}
+}
+
+// expandSchedule builds the SHA-1 message schedule for a single block.
+func expandSchedule(p []byte, w *[80]uint32) {
+	for i := 0; i < 16; i++ {
+		j := i * 4
+		w[i] = uint32(p[j])<<24 | uint32(p[j+1])<<16 | uint32(p[j+2])<<8 | uint32(p[j+3])
+	}
+	for i := 16; i < 80; i++ {
+		w[i] = bits.RotateLeft32(w[i-3]^w[i-8]^w[i-14]^w[i-16], 1)
+	}
+}
+
+// TestDvMaskAgainstCgo compares the Go DV check against the reference C
+// ubc_check directly, rather than only through a full hash. Feeding W values
+// that no real message schedule produces reaches mask states the end-to-end
+// fuzzing never reaches.
+func TestDvMaskAgainstCgo(t *testing.T) {
+	t.Parallel()
+
+	if !cgoEnabled {
+		t.Skip("the cgo package falls back to the Go implementation, so the comparison cannot fail")
+	}
+
+	block := make([]byte, sha1cd.BlockSize)
+	generators := []struct {
+		name string
+		fill func(*rand.Rand, *[80]uint32)
+	}{
+		{"schedule", func(rng *rand.Rand, w *[80]uint32) {
+			rng.Read(block)
+			expandSchedule(block, w)
+		}},
+		{"uniform", func(rng *rand.Rand, w *[80]uint32) {
+			for i := range w {
+				w[i] = rng.Uint32()
+			}
+		}},
+	}
+
+	for _, g := range generators {
+		t.Run(g.name, func(t *testing.T) {
+			rng := rand.New(rand.NewSource(1))
+			var w [80]uint32
+			for i := 0; i < 50000; i++ {
+				g.fill(rng, &w)
+				if got, want := ubc.CalculateDvMask(&w), cgo.CalculateDvMask(&w); got != want {
+					t.Fatalf("iteration %d: go %08x, cgo %08x, W %v", i, got, want, w)
+				}
+			}
+		})
 	}
 }

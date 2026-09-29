@@ -119,7 +119,7 @@ func FuzzCalculateDvMask(f *testing.F) {
 		}
 
 		got := ubc.CalculateDvMask(&w)
-		want := cgo.CalculateDvMask(w)
+		want := cgo.CalculateDvMask(&w)
 		if got != want {
 			t.Fatalf("W: %q\n go dvmask: %d\ncgo dvmask: %d",
 				hex.EncodeToString(in[:shared.Rounds*4]), got, want)

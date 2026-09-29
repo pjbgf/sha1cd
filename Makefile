@@ -38,9 +38,11 @@ build-arm64:
 	docker build -t sha1cd-arm64 -f Dockerfile.arm64 .
 	docker run --rm sha1cd-arm64
 
-# Build with cgo disabled.
+# Build with cgo disabled. Vetting every package (not just ./cgo) is what
+# catches the cgo and non-cgo builds drifting apart in their exported API.
 build-nocgo:
-	CGO_ENABLED=0 go build ./cgo
+	CGO_ENABLED=0 go build ./...
+	CGO_ENABLED=0 go vet ./...
 
 # Run cross-compilation to assure supported architectures.
 cross-build: build-arm build-arm64 build-nocgo
