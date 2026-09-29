@@ -8,6 +8,7 @@ import (
 
 	"github.com/klauspost/cpuid/v2"
 	shared "github.com/pjbgf/sha1cd/internal"
+	"github.com/pjbgf/sha1cd/ubc"
 )
 
 var hasSHA1 = (runtime.GOARCH == "arm64" && cpuid.CPU.Supports(cpuid.SHA1))
@@ -37,13 +38,15 @@ func block(dig *digest, p []byte) {
 
 		blockARM64(dig.h[:], chunk, m1[:], cs[:])
 
-		rectifyCompressionState(&m1, &cs)
-		col := checkCollision(&m1, &cs, &dig.h)
-		if col {
-			dig.col = true
+		// Assembly states need repair only when a disturbance vector survives.
+		if mask := ubc.CalculateDvMask(&m1); mask != 0 {
+			rectifyCompressionState(&m1, &cs)
+			if checkCollision(&m1, &cs, &dig.h, mask) {
+				dig.col = true
 
-			blockARM64(dig.h[:], chunk, m1[:], cs[:])
-			blockARM64(dig.h[:], chunk, m1[:], cs[:])
+				blockARM64(dig.h[:], chunk, m1[:], cs[:])
+				blockARM64(dig.h[:], chunk, m1[:], cs[:])
+			}
 		}
 
 		p = p[shared.Chunk:]
