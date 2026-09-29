@@ -3,6 +3,7 @@
 package sha1cd
 
 import (
+	"math/bits"
 	"math/rand"
 	"testing"
 
@@ -46,8 +47,9 @@ func repeatByte(v byte, n int) []byte {
 }
 
 // checkBlockASM runs a single block through an assembly implementation and
-// checks its outputs. The chaining state is an input rather than always being
-// the initial vector, so that state dependent bugs are reachable.
+// checks its outputs against an independent compression. The chaining state is
+// an input rather than always being the initial vector, so that state
+// dependent bugs are reachable.
 func checkBlockASM(t *testing.T, fn blockFunc, in [shared.WordBuffers]uint32, p []byte) (
 	[shared.WordBuffers]uint32, [shared.Rounds]uint32, [shared.PreStepState][shared.WordBuffers]uint32) {
 	t.Helper()
@@ -57,28 +59,63 @@ func checkBlockASM(t *testing.T, fn blockFunc, in [shared.WordBuffers]uint32, p 
 	cs := [shared.PreStepState][shared.WordBuffers]uint32{}
 	fn(h[:], p, m1[:], cs[:])
 
-	// m1 is the expanded message, which does not depend on the chaining state.
-	if want := messageSchedule(p); m1 != want {
-		t.Errorf("m1\nwanted: %08x\n   got: %08x", want, m1)
+	// The assembly returns the states before steps 56 and 64, which block()
+	// advances to the ones the collision detection consumes.
+	rectifyCompressionState(&m1, &cs)
+
+	w := messageSchedule(p)
+	if m1 != w {
+		t.Errorf("m1\nwanted: %08x\n   got: %08x", w, m1)
 	}
 
-	// cs[0] is the compression state before step 0, which is the chaining
-	// state the block was entered with.
-	if cs[0] != in {
-		t.Errorf("cs[0]\nwanted: %08x\n   got: %08x", in, cs[0])
+	wantH, wantCS := referenceBlock(in, w)
+	if h != wantH {
+		t.Errorf("h\nwanted: %08x\n   got: %08x", wantH, h)
 	}
-
-	var dig digest
-	dig.h = in
-	blockGeneric(&dig, p)
-
-	// blockGeneric rehashes a near-collision block, the assembly does not, so
-	// only the states agree when no collision was detected.
-	if !dig.col && h != dig.h {
-		t.Errorf("h\nwanted: %08x\n   got: %08x", dig.h, h)
+	if cs != wantCS {
+		t.Errorf("cs\nwanted: %08x\n   got: %08x", wantCS, cs)
 	}
 
 	return h, m1, cs
+}
+
+// referenceBlock compresses a single block, returning the resulting chaining
+// state along with the compression states before steps 0, 58 and 65, which are
+// the ones the collision detection consumes.
+func referenceBlock(in [shared.WordBuffers]uint32, w [shared.Rounds]uint32) (
+	[shared.WordBuffers]uint32, [shared.PreStepState][shared.WordBuffers]uint32) {
+	cs := [shared.PreStepState][shared.WordBuffers]uint32{}
+
+	a, b, c, d, e := in[0], in[1], in[2], in[3], in[4]
+	for i := 0; i < shared.Rounds; i++ {
+		switch i {
+		case 0:
+			cs[0] = [shared.WordBuffers]uint32{a, b, c, d, e}
+		case 58:
+			cs[1] = [shared.WordBuffers]uint32{a, b, c, d, e}
+		case 65:
+			cs[2] = [shared.WordBuffers]uint32{a, b, c, d, e}
+		}
+
+		var f, k uint32
+		switch {
+		case i < 20:
+			f, k = b&c|(^b)&d, shared.K0
+		case i < 40:
+			f, k = b^c^d, shared.K1
+		case i < 60:
+			f, k = (b|c)&d|b&c, shared.K2
+		default:
+			f, k = b^c^d, shared.K3
+		}
+
+		t := bits.RotateLeft32(a, 5) + f + e + w[i] + k
+		a, b, c, d, e = t, a, bits.RotateLeft32(b, 30), c, d
+	}
+
+	h := [shared.WordBuffers]uint32{in[0] + a, in[1] + b, in[2] + c, in[3] + d, in[4] + e}
+
+	return h, cs
 }
 
 // messageSchedule returns the SHA-1 expanded message for a single block,
