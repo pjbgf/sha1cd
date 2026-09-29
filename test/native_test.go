@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"hash"
+	"math/rand"
 	"os"
 	"testing"
 	_ "unsafe"
@@ -196,5 +197,35 @@ func TestCalculateDvMask_Shattered1(t *testing.T) {
 				t.Fatalf("[go] dvmask: %d\nwant %d", got, want)
 			}
 		})
+	}
+}
+
+// TestCalculateDvMask_Mutated checks the Go and cgo implementations against
+// each other on expanded messages derived from the shattered ones. Purely
+// random messages almost never yield a non-zero mask, so they only reach the
+// first condition of each disturbance vector check.
+func TestCalculateDvMask_Mutated(t *testing.T) {
+	t.Parallel()
+
+	rng := rand.New(rand.NewSource(1))
+	nonZero := 0
+
+	for i := range shattered1M1s {
+		for j := 0; j < 64; j++ {
+			w := shattered1M1s[i]
+			w[rng.Intn(len(w))] ^= 1 << uint(rng.Intn(32))
+
+			want := cgo.CalculateDvMask(w)
+			if got := ubc.CalculateDvMask(&w); got != want {
+				t.Fatalf("m1[%d] mutation %d\n go dvmask: %d\ncgo dvmask: %d", i, j, got, want)
+			}
+			if want != 0 {
+				nonZero++
+			}
+		}
+	}
+
+	if nonZero == 0 {
+		t.Error("no mutation produced a non-zero mask, the vectors no longer reach the checks")
 	}
 }

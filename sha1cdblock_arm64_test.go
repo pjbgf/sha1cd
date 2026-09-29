@@ -55,3 +55,38 @@ func TestBlockARM64IgnoresRegisterState(t *testing.T) {
 		}
 	}
 }
+
+// FuzzBlockARM64 checks blockARM64 against blockGeneric and against an
+// independently computed message schedule, over fuzzed block contents and
+// chaining states, with and without the registers the function does not own
+// poisoned. The digest only exposes h, so a fault confined to m1 or cs is
+// invisible unless the input reaches the collision detection logic.
+func FuzzBlockARM64(f *testing.F) {
+	if !hasSHA1 {
+		f.Skip("CPU does not support SHA1 instructions")
+	}
+
+	seedBlockCorpus(f)
+
+	f.Fuzz(func(t *testing.T, p []byte, h0, h1, h2, h3, h4 uint32) {
+		if len(p) < shared.Chunk {
+			return
+		}
+
+		in := [shared.WordBuffers]uint32{h0, h1, h2, h3, h4}
+		p = p[:shared.Chunk]
+
+		h, m1, cs := checkBlockASM(t, blockARM64, in, p)
+		hd, m1d, csd := checkBlockASM(t, callBlockARM64DirtyRegs, in, p)
+
+		if hd != h {
+			t.Errorf("dirty registers: h\nwanted: %08x\n   got: %08x", h, hd)
+		}
+		if m1d != m1 {
+			t.Errorf("dirty registers: m1\nwanted: %08x\n   got: %08x", m1, m1d)
+		}
+		if csd != cs {
+			t.Errorf("dirty registers: cs\nwanted: %08x\n   got: %08x", cs, csd)
+		}
+	})
+}
