@@ -20,7 +20,8 @@ bench:
 fuzz:
 	@set -e; for entry in $(FUZZ_TARGETS); do \
 		pkg="$${entry%%:*}"; tags="$${entry##*:}"; \
-		for target in $$(go test -tags "$$tags" -list '^Fuzz' "$$pkg" | grep '^Fuzz' || true); do \
+		listed="$$(go test -tags "$$tags" -list '^Fuzz' "$$pkg")"; \
+		for target in $$(echo "$$listed" | grep '^Fuzz'); do \
 			echo "fuzzing $$target in $$pkg for $(FUZZ_TIME)"; \
 			go test $(FUZZ_FLAGS) -tags "$$tags" -run '^$$' -fuzz "^$$target"'$$' \
 				-fuzztime=$(FUZZ_TIME) "$$pkg"; \
