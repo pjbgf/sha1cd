@@ -6,11 +6,14 @@ package test
 import (
 	"bytes"
 	"crypto/sha1"
+	"encoding/binary"
 	"encoding/hex"
 	"testing"
 
 	"github.com/pjbgf/sha1cd"
 	"github.com/pjbgf/sha1cd/cgo"
+	shared "github.com/pjbgf/sha1cd/internal"
+	"github.com/pjbgf/sha1cd/ubc"
 )
 
 func FuzzDeviationDetection(f *testing.F) {
@@ -92,6 +95,44 @@ func FuzzWriteChunking(f *testing.F) {
 				hex.EncodeToString(gv), gc, hex.EncodeToString(cv), cc)
 		}
 	})
+}
+
+// FuzzCalculateDvMask fuzzes the expanded message the disturbance vector mask
+// is derived from. Reaching the same states through hashing would require
+// inputs the fuzzer cannot generate.
+func FuzzCalculateDvMask(f *testing.F) {
+	requireCgo(f)
+
+	for i := range shattered1M1s {
+		f.Add(marshalW(&shattered1M1s[i]))
+	}
+	f.Add(make([]byte, shared.Rounds*4))
+
+	f.Fuzz(func(t *testing.T, in []byte) {
+		if len(in) < shared.Rounds*4 {
+			return
+		}
+
+		var w [shared.Rounds]uint32
+		for i := range w {
+			w[i] = binary.BigEndian.Uint32(in[i*4:])
+		}
+
+		got := ubc.CalculateDvMask(&w)
+		want := cgo.CalculateDvMask(w)
+		if got != want {
+			t.Fatalf("W: %q\n go dvmask: %d\ncgo dvmask: %d",
+				hex.EncodeToString(in[:shared.Rounds*4]), got, want)
+		}
+	})
+}
+
+func marshalW(w *[shared.Rounds]uint32) []byte {
+	b := make([]byte, shared.Rounds*4)
+	for i, v := range w {
+		binary.BigEndian.PutUint32(b[i*4:], v)
+	}
+	return b
 }
 
 func sum(d sha1cd.CollisionResistantHash, in []byte) ([]byte, bool) {
