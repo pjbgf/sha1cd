@@ -17,7 +17,7 @@ func FuzzDeviationDetection(f *testing.F) {
 		f.Fatal("differential fuzzing requires CGO_ENABLED=1, otherwise the cgo package falls back to the Go implementation")
 	}
 
-	f.Add([]byte{})
+	seedDeviationCorpus(f)
 
 	g := sha1cd.New().(sha1cd.CollisionResistantHash)
 	c := cgo.New().(sha1cd.CollisionResistantHash)
