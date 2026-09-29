@@ -1,5 +1,8 @@
 FUZZ_TIME ?= 1m
 
+# The fuzz targets of each package, along with the tags needed to build them.
+FUZZ_TARGETS = ./test/:gofuzz .:sha1cd_asmtest
+
 export CGO_ENABLED := 1
 
 .PHONY: test
@@ -10,9 +13,18 @@ test:
 bench:
 	go test -benchmem -run=^$$ -bench ^Benchmark ./...
 
+# go test only fuzzes a single target per invocation, so each one is run in
+# turn for FUZZ_TIME.
 .PHONY: fuzz
 fuzz:
-	go test -tags gofuzz -fuzz=. -fuzztime=$(FUZZ_TIME) ./test/
+	@set -e; for entry in $(FUZZ_TARGETS); do \
+		pkg="$${entry%%:*}"; tags="$${entry##*:}"; \
+		for target in $$(go test -tags "$$tags" -list '^Fuzz' "$$pkg" | grep '^Fuzz' || true); do \
+			echo "fuzzing $$target in $$pkg for $(FUZZ_TIME)"; \
+			go test -tags "$$tags" -run '^$$' -fuzz "^$$target"'$$' \
+				-fuzztime=$(FUZZ_TIME) "$$pkg"; \
+		done; \
+	done
 
 # Cross build project in arm/v7.
 build-arm:
