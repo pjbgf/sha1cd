@@ -11,7 +11,12 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+
+    runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -21,5 +26,6 @@ jobs:
           go-version: stable
       - name: Run fuzzers
         env:
-          FUZZ_TIME: 60m
+          # Each fuzz target is run for this long in turn.
+          FUZZ_TIME: 20m
         run: make fuzz

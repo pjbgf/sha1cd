@@ -36,8 +36,17 @@ jobs:
         run: make test
       - run: make bench
 
-  tests:
-    runs-on: ubuntu-latest
+  fuzz:
+    strategy:
+      fail-fast: false
+      matrix:
+        # The assembly implementations are architecture specific, so each one
+        # needs to be fuzzed on hardware that runs it. macos-latest and
+        # ubuntu-24.04-arm are both arm64, but leave different state behind in
+        # the registers the assembly does not own.
+        platform: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+
+    runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -45,10 +54,9 @@ jobs:
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version: stable
-      - name: Run benchmarks
-        run: make bench
       - name: Run fuzzers
         env:
-          # Run for 2 minutes to ensure it is working. Long runs happens nightly.
-          FUZZ_TIME: 2m
+          # Run each target briefly to ensure it is working.
+          # Long runs happen weekly.
+          FUZZ_TIME: 30s
         run: make fuzz
