@@ -1,13 +1,14 @@
-//go:build !noasm && gc && arm64 && !amd64
+//go:build !noasm && gc && arm64 && !amd64 && sha1cd_asmtest
 
 #include "textflag.h"
 
-// blockARM64Poisoned calls blockARM64 with every general-purpose and vector
-// register the caller does not own set to all ones. It is only used in tests,
-// to catch the assembly reading a register before writing it.
+// callBlockARM64DirtyRegs calls blockARM64 with every general-purpose and
+// vector register the caller does not own set to all ones. It is only built
+// with the sha1cd_asmtest tag, to catch the assembly reading a register before
+// writing it.
 //
-// func blockARM64Poisoned(h []uint32, p []byte, m1 []uint32, cs [][5]uint32)
-TEXT ·blockARM64Poisoned(SB), NOSPLIT, $104-96
+// func callBlockARM64DirtyRegs(h []uint32, p []byte, m1 []uint32, cs [][5]uint32)
+TEXT ·callBlockARM64DirtyRegs(SB), NOSPLIT, $104-96
 	MOVD	h_base+0(FP), R0
 	MOVD	R0, 8(RSP)
 	MOVD	h_len+8(FP), R0
