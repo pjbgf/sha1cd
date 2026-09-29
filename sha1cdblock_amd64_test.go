@@ -79,3 +79,24 @@ func TestBlockAMD64TruncatesPartialChunks(t *testing.T) {
 		t.Errorf("h for a short call = %08x, want it left untouched %08x", short, initState())
 	}
 }
+
+// FuzzBlockAMD64 checks blockAMD64 against blockGeneric and against an
+// independently computed message schedule, over fuzzed block contents and
+// chaining states. The digest only exposes h, so a fault confined to m1 or cs
+// is invisible unless the input reaches the collision detection logic.
+func FuzzBlockAMD64(f *testing.F) {
+	if !hasSHANI {
+		f.Skip("CPU does not support SHA-NI instructions")
+	}
+
+	seedBlockCorpus(f)
+
+	f.Fuzz(func(t *testing.T, p []byte, h0, h1, h2, h3, h4 uint32) {
+		if len(p) < shared.Chunk {
+			return
+		}
+
+		in := [shared.WordBuffers]uint32{h0, h1, h2, h3, h4}
+		checkBlockASM(t, blockAMD64, in, p[:shared.Chunk])
+	})
+}
