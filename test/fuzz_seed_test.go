@@ -31,28 +31,27 @@ var collisionFiles = []struct {
 	{path: "testdata/files/sha-mbles-2.bin"},
 }
 
-// seedDeviationCorpus adds inputs covering the block and padding boundaries
+// deviationSeeds returns inputs covering the block and padding boundaries
 // along with inputs that reach the collision detection logic, which the
 // fuzzer has no realistic chance of generating on its own.
-func seedDeviationCorpus(f *testing.F) {
+func deviationSeeds(f *testing.F) [][]byte {
 	f.Helper()
 
-	f.Add([]byte{})
+	seeds := [][]byte{{}}
 
 	rng := rand.New(rand.NewSource(1))
 	for _, n := range boundaryLengths {
 		zeros := make([]byte, n)
-		f.Add(zeros)
 
 		ones := make([]byte, n)
 		for i := range ones {
 			ones[i] = 0xff
 		}
-		f.Add(ones)
 
 		random := make([]byte, n)
 		rng.Read(random)
-		f.Add(random)
+
+		seeds = append(seeds, zeros, ones, random)
 	}
 
 	for _, c := range collisionFiles {
@@ -63,6 +62,8 @@ func seedDeviationCorpus(f *testing.F) {
 		if c.length > 0 {
 			data = data[:c.length]
 		}
-		f.Add(data)
+		seeds = append(seeds, data)
 	}
+
+	return seeds
 }
