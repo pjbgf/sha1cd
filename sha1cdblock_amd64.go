@@ -16,7 +16,10 @@ var hasSHANI = (runtime.GOARCH == "amd64" &&
 	cpuid.CPU.Supports(cpuid.SSE3) &&
 	cpuid.CPU.Supports(cpuid.SSE4))
 
-// blockAMD64 hashes the message p into the current state in h.
+// blockAMD64 hashes a single chunk of p into the current state in h.
+// p must hold at least one whole chunk. Anything beyond the first chunk is
+// ignored, as the collision detection the caller runs afterwards inspects m1
+// and cs for one chunk only.
 // Both m1 and cs are used to store intermediate results which are used by the collision detection logic.
 //
 //go:noescape

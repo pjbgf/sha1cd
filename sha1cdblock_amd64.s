@@ -30,9 +30,12 @@ TEXT ·blockAMD64(SB), NOSPLIT, $80-96
 	MOVQ p_len+32(FP), DX
 	MOVQ m1_base+48(FP), R13
 	MOVQ cs_base+72(FP), R15
-	CMPQ DX, $0x00
-	JEQ  done
-	ADDQ SI, DX
+
+	// Truncate the length to whole chunks and skip the block if none is left.
+	// The caller compresses exactly one chunk per call, so that the collision
+	// detection it runs afterwards sees this chunk's m1 and cs.
+	ANDQ $-64, DX
+	JZ   done
 
 	// Allocate space on the stack for saving ABCD and E0, and align it to 16 bytes
 	LEAQ 15(SP), AX
@@ -47,7 +50,6 @@ TEXT ·blockAMD64(SB), NOSPLIT, $80-96
 	PSHUFD  $0x1b, X0, X0
 	VMOVDQA shuffle_mask<>+0(SB), X7
 
-loop:
 	// Save ABCD and E working values
 	VMOVDQA X5, (AX)
 	VMOVDQA X0, 16(AX)
@@ -251,11 +253,6 @@ loop:
 	// Add saved E and ABCD
 	SHA1NEXTE (AX), X5
 	PADDD     16(AX), X0
-
-	// Check if we are done, if not return to the loop
-	ADDQ $0x40, SI
-	CMPQ SI, DX
-	JNE  loop
 
 	// Write the hash state back to digest
 	PSHUFD  $0x1b, X0, X0
