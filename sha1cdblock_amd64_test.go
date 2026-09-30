@@ -4,6 +4,7 @@ package sha1cd
 
 import (
 	"math/rand"
+	"os"
 	"testing"
 
 	shared "github.com/pjbgf/sha1cd/internal"
@@ -99,4 +100,135 @@ func FuzzBlockAMD64(f *testing.F) {
 		in := [shared.WordBuffers]uint32{h0, h1, h2, h3, h4}
 		checkBlockASM(t, blockAMD64, in, p[:shared.Chunk])
 	})
+}
+
+// TestScheduleAVX2 checks both lanes of the AVX2 message schedule against an
+// independent expansion, including when both lanes hold the same block.
+func TestScheduleAVX2(t *testing.T) {
+	t.Parallel()
+
+	if !hasAVX2 {
+		t.Skip("CPU does not support AVX2 and BMI2")
+	}
+
+	rng := rand.New(rand.NewSource(5))
+	p := make([]byte, 2*shared.Chunk)
+	for i := 0; i < 256; i++ {
+		rng.Read(p)
+
+		var m1 [2][shared.Rounds]uint32
+		scheduleAVX2(&p[0], &p[shared.Chunk], &m1[0], &m1[1])
+		if want := messageSchedule(p[:shared.Chunk]); m1[0] != want {
+			t.Fatalf("first lane\nwanted: %08x\n   got: %08x", want, m1[0])
+		}
+		if want := messageSchedule(p[shared.Chunk:]); m1[1] != want {
+			t.Fatalf("second lane\nwanted: %08x\n   got: %08x", want, m1[1])
+		}
+
+		var same [shared.Rounds]uint32
+		scheduleAVX2(&p[0], &p[0], &same, &same)
+		if same != m1[0] {
+			t.Fatal("expanding a block into both lanes differs from expanding it once")
+		}
+	}
+}
+
+// TestBlockAVX2MatchesGeneric hashes the collision files with blockAVX2, which
+// must detect the same collisions as blockGeneric and end in the same state.
+func TestBlockAVX2MatchesGeneric(t *testing.T) {
+	t.Parallel()
+
+	if !hasAVX2 {
+		t.Skip("CPU does not support AVX2 and BMI2")
+	}
+
+	for _, name := range []string{"shattered-1.pdf", "shattered-2.pdf", "sha-mbles-1.bin", "sha-mbles-2.bin", "valid-file.txt"} {
+		data, err := os.ReadFile("test/testdata/files/" + name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// An odd number of blocks exercises the single block schedule too.
+		for _, n := range []int{len(data), len(data) - shared.Chunk} {
+			if n < 0 {
+				continue
+			}
+			p := data[:n&^(shared.Chunk-1)]
+
+			var want, got digest
+			want.Reset()
+			got.Reset()
+			blockGeneric(&want, p)
+			blockAVX2(&got, p)
+			if got.h != want.h || got.col != want.col {
+				t.Errorf("%s (%d bytes): h = %08x col = %v, want %08x col = %v",
+					name, len(p), got.h, got.col, want.h, want.col)
+			}
+		}
+	}
+}
+
+// FuzzBlockAVX2 checks the AVX2 schedule and BMI2 rounds against an
+// independent compression, over fuzzed blocks and chaining states. Unlike
+// SHA-NI, the rounds record the states before steps 58 and 65 directly.
+func FuzzBlockAVX2(f *testing.F) {
+	if !hasAVX2 {
+		f.Skip("CPU does not support AVX2 and BMI2")
+	}
+
+	seedBlockCorpus(f)
+
+	f.Fuzz(func(t *testing.T, p []byte, h0, h1, h2, h3, h4 uint32) {
+		if len(p) < shared.Chunk {
+			return
+		}
+		p = p[:shared.Chunk]
+
+		var m1 [2][shared.Rounds]uint32
+		scheduleAVX2(&p[0], &p[0], &m1[0], &m1[1])
+		w := messageSchedule(p)
+		if m1[0] != w || m1[1] != w {
+			t.Fatalf("m1\nwanted: %08x\n   got: %08x", w, m1[0])
+		}
+
+		in := [shared.WordBuffers]uint32{h0, h1, h2, h3, h4}
+		h := in
+		cs := [shared.PreStepState][shared.WordBuffers]uint32{}
+		roundsBMI2(&h, &m1[0], &cs)
+
+		wantH, wantCS := referenceBlock(in, w)
+		if h != wantH {
+			t.Errorf("h\nwanted: %08x\n   got: %08x", wantH, h)
+		}
+		if cs != wantCS {
+			t.Errorf("cs\nwanted: %08x\n   got: %08x", wantCS, cs)
+		}
+	})
+}
+
+func BenchmarkBlock(b *testing.B) {
+	p := make([]byte, 8192)
+	rand.New(rand.NewSource(1)).Read(p)
+
+	impls := []struct {
+		name string
+		ok   bool
+		fn   func(*digest, []byte)
+	}{
+		{"shani", hasSHANI, blockSHANI},
+		{"avx2", hasAVX2, blockAVX2},
+		{"generic", true, blockGeneric},
+	}
+	for _, impl := range impls {
+		b.Run(impl.name, func(b *testing.B) {
+			if !impl.ok {
+				b.Skip("not supported by this CPU")
+			}
+			var d digest
+			d.Reset()
+			b.SetBytes(int64(len(p)))
+			for i := 0; i < b.N; i++ {
+				impl.fn(&d, p)
+			}
+		})
+	}
 }

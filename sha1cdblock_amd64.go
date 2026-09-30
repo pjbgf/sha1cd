@@ -24,11 +24,19 @@ var hasSHANI = cpu.X86.HasSHA && cpu.X86.HasSSSE3 && cpu.X86.HasSSE41
 func blockAMD64(h []uint32, p []byte, m1 []uint32, cs [][5]uint32)
 
 func block(dig *digest, p []byte) {
-	if forceGeneric || !hasSHANI {
+	switch {
+	case forceGeneric:
 		blockGeneric(dig, p)
-		return
+	case hasSHANI:
+		blockSHANI(dig, p)
+	case hasAVX2:
+		blockAVX2(dig, p)
+	default:
+		blockGeneric(dig, p)
 	}
+}
 
+func blockSHANI(dig *digest, p []byte) {
 	m1 := [shared.Rounds]uint32{}
 	cs := [shared.PreStepState][shared.WordBuffers]uint32{}
 
