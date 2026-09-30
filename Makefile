@@ -6,9 +6,12 @@ FUZZ_TARGETS = ./test/:gofuzz .:sha1cd_asmtest
 
 export CGO_ENABLED := 1
 
+# The hashing tests run a second time with SHA-NI off, so that CPUs with it
+# also cover the AVX2 fallback that CPUs without it use.
 .PHONY: test
 test:
 	go test -race -timeout 15s -tags sha1cd_asmtest ./...
+	SHA1CD_TEST_NOSHANI=1 go test -race -timeout 15s -tags sha1cd_asmtest ./test/
 
 .PHONY: bench
 bench:
