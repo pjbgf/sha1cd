@@ -277,23 +277,22 @@ func rectifyCompressionState(
 		return
 	}
 
-	func3 := func(state [shared.WordBuffers]uint32, i int) [shared.WordBuffers]uint32 {
-		a, b, c, d, e := state[0], state[1], state[2], state[3], state[4]
+	// The words are loaded and stored one at a time. Passing [5]uint32 values
+	// around made the compiler reload them with wider moves than they were
+	// stored with, which stalled on store forwarding each time.
 
+	// Advance cs[1] from the state before step 56 to the one before step 58.
+	a, b, c, d, e := cs[1][0], cs[1][1], cs[1][2], cs[1][3], cs[1][4]
+	for i := 56; i < 58; i++ {
 		f := ((b | c) & d) | (b & c)
 		t := bits.RotateLeft32(a, 5) + f + e + m1[i] + shared.K2
 		a, b, c, d, e = t, a, bits.RotateLeft32(b, 30), c, d
-		return [shared.WordBuffers]uint32{a, b, c, d, e}
 	}
-	func4 := func(state [shared.WordBuffers]uint32, i int) [shared.WordBuffers]uint32 {
-		a, b, c, d, e := state[0], state[1], state[2], state[3], state[4]
-		f := b ^ c ^ d
-		t := bits.RotateLeft32(a, 5) + f + e + m1[i] + shared.K3
-		a, b, c, d, e = t, a, bits.RotateLeft32(b, 30), c, d
-		return [shared.WordBuffers]uint32{a, b, c, d, e}
-	}
+	cs[1][0], cs[1][1], cs[1][2], cs[1][3], cs[1][4] = a, b, c, d, e
 
-	cs57 := func3(cs[1], 56)
-	cs[1] = func3(cs57, 57)
-	cs[2] = func4(cs[2], 64)
+	// Advance cs[2] from the state before step 64 to the one before step 65.
+	a, b, c, d, e = cs[2][0], cs[2][1], cs[2][2], cs[2][3], cs[2][4]
+	f := b ^ c ^ d
+	t := bits.RotateLeft32(a, 5) + f + e + m1[64] + shared.K3
+	cs[2][0], cs[2][1], cs[2][2], cs[2][3], cs[2][4] = t, a, bits.RotateLeft32(b, 30), c, d
 }
