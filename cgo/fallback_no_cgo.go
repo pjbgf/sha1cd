@@ -12,8 +12,8 @@ import (
 
 // CalculateDvMask falls back to github.com/pjbgf/sha1cd/ubc implementation
 // due to CGO being disabled at compilation time.
-func CalculateDvMask(W [80]uint32) uint32 {
-	return ubc.CalculateDvMask(&W)
+func CalculateDvMask(W *[80]uint32) uint32 {
+	return ubc.CalculateDvMask(W)
 }
 
 // CalculateDvMask falls back to github.com/pjbgf/sha1cd implementation

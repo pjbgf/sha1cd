@@ -18,6 +18,9 @@ import (
 // bitconditions for all listed DVs. It returns a dvmask where each bit belonging to a DV
 // is set if all unavoidable bitconditions for that DV have been met.
 // Thus, one needs to do the recompression check for each DV that has its bit set.
-func CalculateDvMask(W [80]uint32) uint32 {
+func CalculateDvMask(W *[80]uint32) uint32 {
+	if W == nil {
+		return 0
+	}
 	return uint32(C.check((*C.uint32_t)(unsafe.Pointer(&W[0]))))
 }
