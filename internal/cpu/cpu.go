@@ -9,11 +9,16 @@ package cpu
 // X86 holds the features of the current amd64 CPU. All flags are false on
 // other architectures.
 var X86 struct {
-	// HasAVX is set only when the OS also preserves the YMM state.
-	HasAVX   bool
-	HasSHA   bool
-	HasSSSE3 bool
-	HasSSE41 bool
+	// HasAVX and HasAVX2 are set only when the OS also preserves the YMM
+	// state, and HasAVX512F only when it preserves the ZMM and opmask state.
+	HasAVX     bool
+	HasAVX2    bool
+	HasAVX512F bool
+	HasBMI1    bool
+	HasBMI2    bool
+	HasSHA     bool
+	HasSSSE3   bool
+	HasSSE41   bool
 }
 
 // ARM64 holds the features of the current arm64 CPU. All flags are false on
