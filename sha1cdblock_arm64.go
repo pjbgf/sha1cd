@@ -4,14 +4,12 @@
 package sha1cd
 
 import (
-	"runtime"
-
-	"github.com/klauspost/cpuid/v2"
 	shared "github.com/pjbgf/sha1cd/internal"
+	"github.com/pjbgf/sha1cd/internal/cpu"
 	"github.com/pjbgf/sha1cd/ubc"
 )
 
-var hasSHA1 = (runtime.GOARCH == "arm64" && cpuid.CPU.Supports(cpuid.SHA1))
+var hasSHA1 = cpu.ARM64.HasSHA1
 
 // blockARM64 hashes a single chunk of p into the current state in h.
 // p must hold at least one whole chunk. Anything beyond the first chunk is
